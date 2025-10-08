@@ -1,0 +1,46 @@
+[LDAT1
+[LDA TEST 1
+*400
+    35
+#2S SET i 1
+    7775
+#2A SET i 2
+    7773
+#2B SET i 3
+    6000
+#2C CLR
+    ADD 2K
+    LDA
+    3K
+    COM
+    ADD 4K
+    AZE
+    HLT
+    CLR
+    ADD 3K
+    COM
+    ADD 4K
+    AZE
+    HLT
+    CLR
+    ADD 2K
+    ADD 5K
+    STC 2K
+    ADD 3K
+    ADD 6K
+    STC 3K
+    ADD 4K
+    ADD 6K
+    STC 4K
+    XSK i 3
+    JMP 2C
+    XSK i 2
+    JMP 2B
+    XSK i 1
+    JMP 2A
+    JMP 1T
+#2K 7777
+#3K 0
+#4K 0
+#5K -1
+#6K 1

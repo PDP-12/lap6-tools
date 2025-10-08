@@ -1,0 +1,20 @@
+[test
+	⊟20
+#1A	JMP 7D
+	NOP
+#7D	ADD 1A+2
+	STC 3B-1
+	LDA i
+#1B
+	RDC u
+	1|300
+3B=123
+	JMP p-2
+        LDH
+         1;2B
+	@400
+#2B	"HELLO„
+	-1
+	-0
+	7777+1
+	1-2

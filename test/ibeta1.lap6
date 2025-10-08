@@ -1,0 +1,55 @@
+[iBETA1
+[i-BETA TEST 1
+[i=0
+[BETA=0
+[Q2-Q7
+*400
+    31
+#2S SET i 1
+    7767
+#2A CLR
+    ADD 4K
+    STC 2C
+    ADD 6K
+    STC 2Z
+    ADD 7K
+    STC 3Z
+    ADD 2L
+    STC 2K
+#2B CLR
+    ADD 2K
+    ADD 3K
+    STC 2K
+    ADD 2K
+    STA
+#2Z 1000
+    LDA
+#3Z 1000
+    COM
+    ADD 2K
+    AZE
+    HLT
+    CLR
+    ADD 2Z
+    ADD 3K
+    STC 2Z
+    ADD 3Z
+    ADD 3K
+    STC 3Z
+    ADD 2C
+    ADD 5K
+    STC 2C
+    ADD 2C
+    APO i
+    JMP 2B
+    XSK i 1
+    JMP 2A
+    JMP 1T
+#2C 0
+#2K 4777
+#3K 1
+#4K 3000
+#5K -1
+#6K 1000
+#7K 1000
+#2L 4777
