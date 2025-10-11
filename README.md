@@ -1,6 +1,10 @@
 This is a cross assembler for the LINC computer, compatible with Mary
 Allen Wilke's LAP6.
 
+There is a separate tool for managing LINCtape images in LAP6 format.
+It can list the index, and read or write manuscripts and binaries.
+Forensic support include seaching for index and listing unused blocks.
+
 The original LAP6 was more than just an assembler; it was also a text
 editor and file system for magnetic tapes.  It was essentially an
 integrated development environment and operating system for the LINC.

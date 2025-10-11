@@ -1,3 +1,6 @@
 *~
+*.o
 /convert
+/lap6
 /test/output.oct
+/test/test.linc

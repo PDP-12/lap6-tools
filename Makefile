@@ -1,9 +1,12 @@
-all: lap6 convert check
+CFLAGS=-g -Wall
 
-lap6: lap6.py
+all: lap6.py convert lap6 check
 
-convert: convert.c
-	$(CC) $^ -o $@
+convert: convert.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+lap6: lap6.o
+	$(CC) $(CFLAGS) $^ -o $@
 
 check: lap6.py test/test.sh test/test.oct
 	test/test.sh
