@@ -19,7 +19,8 @@ static word_t directory[INDEX_BLOCKS * BLOCK_WORDS];
 static word_t input[100 * BLOCK_WORDS];
 static int input_blocks, X;
 static int *input_block = &X;
-static const char *arg_name = NULL;
+static const char *arg3 = NULL;
+static const char *arg4 = NULL;
 static int forward_offset;
 static FILE *tape;
 
@@ -253,7 +254,7 @@ static void print_binary(const char *name, word_t *block, word_t *blocks)
 
 static void vacant_name(word_t *data)
 {
-  const char *p = arg_name;
+  const char *p = arg3;
   word_t word = 0;
   char c;
   int i;
@@ -359,9 +360,9 @@ static void save_input(const char *message,
   *block = *blocks = EMPTY;
   fit_input();
   fprintf(stderr, "%s %s, %03o %o.\n",
-          message, arg_name, *input_block, input_blocks);
+          message, arg3, *input_block, input_blocks);
   for (i = 0; i < input_blocks; i++)
-    write_block(*input_block + i, input);
+    write_block(*input_block + i, input + i * BLOCK_WORDS);
   *block = *input_block;
   *blocks = input_blocks;
   write_block(directory_block, directory);
@@ -390,7 +391,7 @@ static word_t *vacant(void)
 
 static int found(const char *name)
 {
-  return strcasecmp(name, arg_name) == 0;
+  return strcasecmp(name, arg3) == 0;
 }
 
 static void ignore(const char *name, word_t *block, word_t *blocks)
@@ -404,24 +405,30 @@ static void save_manuscript_entry(const char *name, word_t *block, word_t *block
   save_input("Overwriting manuscript", get_manuscript, 07777, block, blocks);
 }
 
+static void write_manuscript_to(FILE *f, word_t *data)
+{
+  word_t word, c;
+  int i;
+  for (i = 0; i < BLOCK_WORDS; i++) {
+    word = data[i];
+    c = (word >> 6) & 077;
+    fputs(convert_to_utf8(c), stdout);
+    c = word & 077;
+    fputs(convert_to_utf8(c), stdout);
+  }
+}
+
 static void add_manuscript_entry(const char *name, word_t *block, word_t *blocks)
 {
   word_t data[BLOCK_WORDS];
-  int i, j, n = *block, m = *blocks;
-  word_t word, c;
+  int i, n = *block, m = *blocks;
   if (!found(name))
     return;
   if (*block == EMPTY && *blocks == EMPTY)
     fail("Entry has no manuscript.");
   for (i = 0; i < m; i++) {
     read_block(n++, data);
-    for (j = 0; j < BLOCK_WORDS; j++) {
-      word = data[j];
-      c = (word >> 6) & 077;
-      fputs(convert_to_utf8(c), stdout);
-      c = word & 077;
-      fputs(convert_to_utf8(c), stdout);
-    }
+    write_manuscript_to(stdout, data);
   }
   exit(0);
 }
@@ -433,20 +440,26 @@ static void save_binary_entry(const char *name, word_t *block, word_t *blocks)
   save_input("Overwriting binary", get_binary, 00000, block, blocks);
 }
 
+static void write_binary_to(FILE *f, word_t *data)
+{
+  int i;
+  for (i = 0; i < BLOCK_WORDS; i++) {
+    fputc(data[i] & 0xFF, f);
+    fputc((data[i] >> 8) & 0xF, f);
+  }
+}
+
 static void load_binary_entry(const char *name, word_t *block, word_t *blocks)
 {
   word_t data[BLOCK_WORDS];
-  int i, j, n = *block, m = *blocks;
+  int i, n = *block, m = *blocks;
   if (!found(name))
     return;
   if (*block == EMPTY && *blocks == EMPTY)
     fail("Entry has no binary.");
   for (i = 0; i < m; i++) {
     read_block(n++, data);
-    for (j = 0; j < BLOCK_WORDS; j++) {
-      fputc(data[j] & 0xFF, stdout);
-      fputc((data[j] >> 8) & 0xF, stdout);
-    }
+    write_binary_to(stdout, data);
   }
   exit(0);
 }
@@ -615,6 +628,42 @@ static void mark_tape(void)
   exit(0);
 }
 
+static void read_binary_blocks(void)
+{
+  char *end;
+  word_t data[BLOCK_WORDS];
+  int block, blocks;
+  int i;
+
+  block = strtoul(arg3, &end, 8);
+  if (end == arg3)
+    fail("Invalid block number.");
+  blocks = strtoul(arg4, &end, 8);
+  if (end == arg3)
+    fail("Invalid number of blocks.");
+
+  for (i = 0; i < blocks; i++) {
+    read_block(block++, data);
+    write_binary_to(stdout, data);
+  }
+}
+
+static void write_binary_blocks(void)
+{
+  char *end;
+  int block;
+  int i;
+
+  block = strtoul(arg3, &end, 8);
+  if (end == arg3)
+    fail("Invalid block number.");
+
+  collect_input(get_binary, 00000);
+  for (i = 0; i < input_blocks; i++)
+    write_block(block + i, input + i * BLOCK_WORDS);
+  exit(0);
+}
+
 int metadata(int *block_size, int *forward_offset, int *reverse_offset)
 {
   long size;
@@ -713,17 +762,19 @@ static const struct {
   void (*open)(const char *);
   void (*fn)(void);
 } command[] = {
-  { "dx", read_index,     display_index },  
-  { "sx", read_noindex,   search_index },   
+  { "dx", read_index,     display_index },
+  { "sx", read_noindex,   search_index },
   { "sm", write_index,    save_manuscript },
-  { "am", read_index,     add_manuscript }, 
-  { "sb", write_index,    save_binary },    
-  { "lo", read_index,     load_binary },    
-  { "dm", write_index,    delete_manuscript },         
-  { "db", write_index,    delete_binary },         
-  { "du", read_index,     display_unused }, 
-  { "mx", write_noindex,  make_index },     
-  { "mk", create_noindex, mark_tape }       
+  { "am", read_index,     add_manuscript },
+  { "sb", write_index,    save_binary },
+  { "lo", read_index,     load_binary },
+  { "dm", write_index,    delete_manuscript },
+  { "db", write_index,    delete_binary },
+  { "du", read_index,     display_unused },
+  { "mx", write_noindex,  make_index },
+  { "mk", create_noindex, mark_tape },
+  { "rb", read_noindex,   read_binary_blocks },
+  { "wb", write_noindex,  write_binary_blocks }
 };
 
 static void usage(const char *name)
@@ -742,9 +793,11 @@ int main(int argc, char **argv)
 {
   int i;
 
-  arg_name = argv[3];
   if (argv[1] == NULL)
     usage(argv[0]);
+
+  arg3 = argv[3];
+  arg4 = argv[4];
 
   for (i = 0; i < sizeof command / sizeof command[0]; i++) {
     if (strcmp(argv[1], command[i].name) == 0) {
