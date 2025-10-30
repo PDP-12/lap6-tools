@@ -12,7 +12,6 @@ symtab = {
     "HLT": 0o0000,
     "ZTA": 0o0005,
     "CLR": 0o0011,
-    "DIN": 0o0012,
     "ATR": 0o0014,
     "RTA": 0o0015,
     "NOP": 0o0016,
@@ -137,7 +136,7 @@ chartab = {
 
 def debug(message):
     yield
-    print(message)
+    print(message, file=sys.stderr)
 
 
 def pee():
@@ -156,7 +155,7 @@ def error(symbol):
 def core(value):
     global image, labels
     if value is None:
-        raise Exception(f"No value for {pee():04o}")
+        value = 0
     if image:
         debug(f"Store {value:04o} at {pee():04o}")
         image[pee()] = value & 0o7777
@@ -178,13 +177,25 @@ def foo(value):
 
 
 def sum(x1, x2):
+    if x1 is None:
+        return x2
+    if x2 is None:
+        return x1
     sum = x1 + x2
     sum = sum + (sum >> 12)
     return sum & 0o7777
 
 
 def negate(x):
+    if x is None:
+        return 0
     return x ^ 0o7777
+
+
+def shift(x, n):
+    if x is None:
+        return 0
+    return (x << n) & 0o7777
 
 
 def parse(line, store=foo):
@@ -221,65 +232,80 @@ def parse(line, store=foo):
         symbol = m.group(1)
         debug(f"symbol {symbol} = {m.group(2)}")
         value = parse(m.group(2))
-        symtab[symbol] = value
+        labels[symbol] = value
         return None
-    m = re.compile(r'^([^ "]+)[ \t]+(.*)').match(line)
-    if m:
-        value = parse(m.group(1))
-        debug(f"composition {m.group(1)}={value:04o} with {m.group(2)}")
-        return store(value | parse(m.group(2)))
 
-    m = re.compile(r'^-(.*)').match(line)
+    m = re.compile(r'^([0-9][A-Z]|p)(.*)').match(line)
+    if m:
+        label = m.group(1)
+        if label in labels:
+            value = labels[label]
+            debug(f"label {label} is {value:04o}")
+        else:
+            value = undefined(label)
+        if m.group(2) != "":
+            value = sum(value, parse(m.group(2)))
+        return store(value)
+    m = re.compile(r'^([A-Z] ?[A-Z]? ?[A-Z]?|[ui&])(.*)').match(line)
+    if m:
+        symbol = m.group(1)
+        symbol = symbol.replace(" ", "")
+        value = 0
+        shortened = symbol[0:1] + symbol[2:3]
+        debug(f"shortened {shortened}")
+        if shortened in symtab:
+            value = symtab[shortened]
+            debug(f"symbol {symbol} is {value:04o}")
+        else:
+            value = None
+        if m.group(2) != "":
+            value = sum(value, parse(m.group(2)))
+        return store(value)
+
+    m = re.compile(r'^-([0-9][A-Z]|[0-9]+|[uip&]|[A-Z] ?[A-Z]? ?[A-Z]?)(.*)').match(line)
     if m:
         debug(f"negate {m.group(1)}")
         value = negate(parse(m.group(1)))
-        debug(f"negate {value}")
+        debug(f"negate {value:04o}")
+        if m.group(2) != "":
+            value = sum(value, parse(m.group(2)))
         return store(value)
-    m = re.compile(r'^([^+]*)\+(.*)').match(line)
+    m = re.compile(r'^\+([0-9][A-Z]|[0-9]+|[uip&]|[A-Z] ?[A-Z]? ?[A-Z]?)(.*)').match(line)
     if m:
         debug(f"addition {m.group(1)} {m.group(2)}")
-        value = sum(parse(m.group(1)), parse(m.group(2)))
-        return store(value)
-    m = re.compile(r'^([^-]*)-(.*)').match(line)
-    if m:
-        debug(f"subtraction {m.group(1)} {m.group(2)}")
-        value = sum(parse(m.group(1)), negate(parse(m.group(2))))
+        value = parse(m.group(1))
+        if m.group(2) != "":
+            value = sum(value, parse(m.group(2)))
         return store(value)
     m = re.compile(r'^([^|\\]*)\|(.*)').match(line)
     if m:
-        value = (parse(m.group(1)) << 9) | parse(m.group(2))
-        return store(value)
-    m = re.compile(r'^([^;]*);(.*)').match(line)
-    if m:
-        value = (parse(m.group(1)) << 11) | parse(m.group(2))
+        debug(f"Shift {m.group(1)} {m.group(2)}")
+        value = sum(shift(parse(m.group(1)), 9), parse(m.group(2)))
         return store(value)
     m = re.compile(r'^"([^„]*)„').match(line)
     if m:
         return string(m.group(1), store)
-    m = re.compile(r'^([0-7]+)([^A-Z]|$)').match(line)
+    m = re.compile(r'^([0-7]+)(.*)').match(line)
     if m:
-        number = int(m.group(1), 8)
-        debug(f"number {number}")
-        return store(number)
-    m = re.compile(r'^([0-9][A-Z]|[A-Z][A-Z][A-Z]|[uip&])').match(line)
-    if m:
-        symbol = m.group(1)
-        if symbol in symtab:
-            value = symtab[symbol]
-            debug(f"symbol {symbol} is {value:04o}")
-            return store(value)
-        elif symbol in labels:
-            value = labels[symbol]
-            debug(f"label {symbol} is {value:04o}")
-            return store(value)
-        else:
-            store(0)
-            return undefined(symbol)
+        value = int(m.group(1), 8)
+        debug(f"number {value}")
+        if m.group(2) != "":
+            value = sum(value, parse(m.group(2)))
+        return store(value)
+
     raise Exception(f"Syntax error: {line}")
 
 
 if __name__ == "__main__":
     global undefined, image, labels
+    for symbol in symtab.copy():
+        shortened = symbol[0:1] + symbol[2:3]
+        symtab[shortened] = symtab[symbol]
+        debug(f"symbol {symbol} shortened {shortened} value {symtab[shortened]}")
+        del symtab[symbol]
+    symtab["u"] = 0o0010;
+    symtab["i"] = 0o0020;
+    symtab["&"] = 0o0020;
     debug("PASS 1")
     labels = {}
     labels["p"] = 0
