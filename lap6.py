@@ -199,7 +199,7 @@ def shift(x, n):
 
 
 def parse(line, store=foo):
-    global undefined
+    global undefined, input
     line = re.sub(r'\[.*$', '', line)
 
     m = re.compile(r'^([^[]*)\[(.*)').match(line)
@@ -287,15 +287,22 @@ def parse(line, store=foo):
         return string(m.group(1), store)
     m = re.compile(r'^[↑"]([^„↓]*)').match(line)
     if m:
-        print(f"string = {m.group(1)}")
-        return string(m.group(1), store)
-    m = re.compile(r'^[↓„]').match(line)
-    if m:
-        return None
+        string(m.group(1) + "\n", store)
+        while True:
+            line = input.readline()
+            line = line.strip()
+            m = re.compile(r'^([^„↓]*)[↓„]').match(line)
+            if m:
+                string(m.group(1), store)
+                return None
+            else:
+                if line != "":
+                    line = line + "\n"
+                string(line, store)
     m = re.compile(r'^([0-7]+)(.*)').match(line)
     if m:
         value = int(m.group(1), 8)
-        debug(f"number {value}")
+        debug(f"number {value:04o}")
         if m.group(2) != "":
             value = sum(value, parse(m.group(2)))
         return store(value)
@@ -304,7 +311,7 @@ def parse(line, store=foo):
 
 
 if __name__ == "__main__":
-    global undefined, image, labels
+    global undefined, image, labels, input
     for symbol in symtab.copy():
         shortened = symbol[0:1] + symbol[2:3]
         symtab[shortened] = symtab[symbol]
@@ -318,15 +325,15 @@ if __name__ == "__main__":
     labels["p"] = 0
     undefined = zero
     image = None
-    with open(sys.argv[1]) as f:
-        for line in f:
+    with open(sys.argv[1]) as input:
+        for line in input:
             parse(line, core)
     debug("PASS 2")
     labels["p"] = 0
     undefined = error
     image = [None] * memsize
-    with open(sys.argv[1]) as f:
-        for line in f:
+    with open(sys.argv[1]) as input:
+        for line in input:
             parse(line, core)
     for i in range(memsize):
         if image[i] is not None:
