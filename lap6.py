@@ -11,6 +11,7 @@ symtab = {
     "&":   0o0020,
     "HLT": 0o0000,
     "ZTA": 0o0005,
+    "ENI": 0o0010,
     "CLR": 0o0011,
     "ATR": 0o0014,
     "RTA": 0o0015,
@@ -26,6 +27,7 @@ symtab = {
     "SXL": 0o0400,
     "KST": 0o0415,
     "SNS": 0o0440,
+    "PIN": 0o0446,
     "AZE": 0o0450,
     "APO": 0o0451,
     "LZE": 0o0452,
@@ -306,6 +308,8 @@ def parse(line, store=foo):
         if m.group(2) != "":
             value = sum(value, parse(m.group(2)))
         return store(value)
+    if line == "?":
+        return None
 
     raise Exception(f"Syntax error: {line}")
 
