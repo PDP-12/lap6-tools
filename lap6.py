@@ -151,6 +151,10 @@ def zero(symbol):
 
 
 def error(symbol):
+    if symbol == "5T":
+        # Special allowance for PRINT MS.
+        print(f"Undefined symbol: {symbol}", file=sys.stderr)
+        return 0
     raise Exception(f"Undefined symbol: {symbol}")
 
 
