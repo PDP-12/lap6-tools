@@ -90,7 +90,7 @@ static const char *convert_to_teletype(word_t c)
   return x[c];
 }
 
-static unsigned char convert_to_linc(char c)
+static unsigned char convert_to_linc(int c)
 {
   switch (c) {
   case '0': return 000;
@@ -140,25 +140,29 @@ static unsigned char convert_to_linc(char c)
   case 'Y':           return 054;
   case 'Z': case 'z': return 055;
   //META           056
-  //→              057
+  case 0x2192: return 057; //→
   case '?': return 060;
   case '=': return 061;
   case 'u': return 062;
   case ',': return 063;
   case '.': return 064;
-  //⊟
   case '@': return 065;
+  case 0x229F: return 065; //⊟
   case '[': return 066;
   case '_': return 067;
   case '\"': return 070;
-  //„              071
+  case 0x2191: return 070; //↑
+  case 0x2193: return 071; //↓
+  case 0x201E: return 071; //„
   case '<': return 072;
   case '>': return 073;
   case ']': return 074;
   case '*':
   case 'x': return 075;
+  case 0x02E3: return 075; //ˣ
   case ':': return 076;
   case 'y': return 077;
+  case 0x02B8: return 077; //ʸ
   default:
     fail("Bad data in input.");
     return 077;
@@ -345,13 +349,41 @@ static void fit_input(void)
   fail("Input doesn't fit in file areas.");
 }
 
+static int getunicode()
+{
+  int c1, c2, c3, c4;
+  c1 = getchar();
+  if (c1 == EOF)
+    return EOF;
+  if ((c1 & 0x80) == 0)
+    return c1;
+  c2 = getchar();
+  if (c2 == EOF)
+    fail("Bad data in input.");
+  if ((c1 & 0xE0) == 0xC0)
+    return ((c1 & 0x1F) << 6) | (c2 & 0x3F);
+  c3 = getchar();
+  if (c3 == EOF)
+    fail("Bad data in input.");
+  if ((c1 & 0xF0) == 0xE0)
+    return ((c1 & 0x0F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
+  c4 = getchar();
+  if (c4 == EOF)
+    fail("Bad data in input.");
+  if ((c1 & 0xF8) == 0xF0)
+    return ((c1 & 0x07) << 18) | ((c2 & 0x3F) << 12)
+         | ((c3 & 0x3F) << 6)  | (c4 & 0x3F);
+  fail("Bad data in input.");
+  return 0;
+}
+
 static int get_manuscript(word_t *data)
 {
   int c1, c2;
-  c1 = getchar();
+  c1 = getunicode();
   if (c1 == EOF)
     return 0;
-  c2 = getchar();
+  c2 = getunicode();
   if (c2 == EOF)
     c2 = 'y';
   *data = convert_to_linc(c2) | (convert_to_linc(c1) << 6);
