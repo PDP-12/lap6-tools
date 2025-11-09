@@ -314,6 +314,8 @@ def parse(line, store=foo):
         return store(value)
     if line == "?":
         return None
+    if "," in line:
+        return 0
 
     raise Exception(f"Syntax error: {line}")
 
