@@ -102,6 +102,7 @@ static unsigned char convert_to_linc(int c)
   case '6': return 006;
   case '7': return 007;
   case '8': return 010;
+  case '9': return 011;
   case '\r':
   case '\n': return 012;
   case '\b': return 013;
@@ -112,7 +113,6 @@ static unsigned char convert_to_linc(int c)
   case '+': return 020;
   case '|': return 021;
   case '#': return 022;
-  //CASE
   case 'A': case 'a': return 024;
   case 'B': case 'b': return 025;
   case 'C': case 'c': return 026;
@@ -140,6 +140,7 @@ static unsigned char convert_to_linc(int c)
   case 'Y':           return 054;
   case 'Z': case 'z': return 055;
   //META           056
+  case 032:
   case 0x2192: return 057; //→
   case '?': return 060;
   case '=': return 061;
@@ -149,7 +150,7 @@ static unsigned char convert_to_linc(int c)
   case '@': return 065;
   case 0x229F: return 065; //⊟
   case '[': return 066;
-  case '_': return 067;
+  case '_': return 067;  case '^': return 067;
   case '\"': return 070;
   case 0x2191: return 070; //↑
   case 0x2193: return 071; //↓
