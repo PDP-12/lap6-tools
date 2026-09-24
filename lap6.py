@@ -2,6 +2,7 @@
 
 import re
 import sys
+import pathlib
 
 memsize = 2048
 
@@ -139,6 +140,15 @@ chartab = {
 def debug(message):
     yield
     print(message, file=sys.stderr)
+
+
+def list(address, source):
+    global image
+    if address is None:
+        print("         ", file=listing, end="")
+    else:
+        print(f"{i:04o} {image[i]:04o}", file=listing, end="")
+    print(source, file=listing, end="")
 
 
 def pee():
@@ -320,8 +330,12 @@ def parse(line, store=foo):
     raise Exception(f"Syntax error: {line}")
 
 
+def lst(file):
+    return pathlib.Path(file).with_suffix(".lst")
+
+
 if __name__ == "__main__":
-    global undefined, image, labels, input
+    global undefined, image, labels, input, listing
     for symbol in symtab.copy():
         shortened = symbol[0:1] + symbol[2:3]
         symtab[shortened] = symtab[symbol]
@@ -342,9 +356,16 @@ if __name__ == "__main__":
     labels["p"] = 0
     undefined = error
     image = [None] * memsize
-    with open(sys.argv[1]) as input:
+    with open(sys.argv[1]) as input, open(lst(sys.argv[1]), "w") as listing:
         for line in input:
+            p = pee()
             parse(line, core)
+            if image[p] is None:
+                list(None, line)
+                continue
+            for i in range(p, pee()):
+                list(i, line)
+                line = "\n"
     for i in range(memsize):
         if image[i] is not None:
             print(f"{i:04o} {image[i]:04o}")
