@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import pathlib
 import re
 import sys
 
@@ -11,7 +12,6 @@ symtab = {
     "&":   0o0020,
     "HLT": 0o0000,
     "ZTA": 0o0005,
-    "ENI": 0o0010,
     "CLR": 0o0011,
     "DIN": 0o0012,
     "ATR": 0o0014,
@@ -28,7 +28,6 @@ symtab = {
     "SXL": 0o0400,
     "KST": 0o0415,
     "SNS": 0o0440,
-    "PIN": 0o0446,
     "AZE": 0o0450,
     "APO": 0o0451,
     "LZE": 0o0452,
@@ -294,9 +293,15 @@ if __name__ == "__main__":
     labels["p"] = 0
     undefined = error
     image = [None] * memsize
-    with open(sys.argv[1]) as f:
+    with open(sys.argv[1]) as f, open(pathlib.Path(sys.argv[1]).with_suffix('.lst'), 'w') as list:
         for line in f:
+            p = labels["p"]
             parse(line, core)
+            if image[p] is not None:
+               print(f"{p:04o} {image[p]:04o} {line}", file=list, end='')
+            else:
+               print(f"          {line}", file=list, end='')
+            
     for i in range(memsize):
         if image[i] is not None:
             print(f"{i:04o} {image[i]:04o}")
