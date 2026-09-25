@@ -286,7 +286,8 @@ def parse(line, store=foo, recurse=True):
     raise Exception(f"Syntax error: {errinfo['lnum']}: {errinfo['origLine']} parsing {line}")
   except TypeError:
       raise Exception(f"Type error: {errinfo['lnum']}: {errinfo['origLine']} parsing {line}")
-
+  except KeyError as e:
+      raise Exception(f"Bad character {e}: {errinfo['lnum']}: {errinfo['origLine']} parsing {line}")
 
 
 if __name__ == "__main__":
