@@ -288,7 +288,7 @@ def parse(line, store=foo):
         debug(f"Shift {m.group(1)} {m.group(2)}")
         value = sum(shift(parse(m.group(1)), 9), parse(m.group(2)))
         return store(value)
-    m = re.compile(r'^[↑"]([^„↓]*)[↓„]').match(line)
+    m = re.compile(r'^[↑"]([^„↓;]*)[↓„;]').match(line)
     if m:
         return string(m.group(1), store)
     m = re.compile(r'^[↑"]([^„↓]*)').match(line)
