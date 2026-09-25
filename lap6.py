@@ -150,13 +150,14 @@ def zero(symbol):
 
 
 def error(symbol):
-    raise Exception(f"Undefined symbol: {symbol}")
+    global errinfo
+    raise Exception(f"Undefined symbol: {symbol} {errinfo['lnum']}: {errinfo['origLine']}")
 
 
 def core(value):
     global image, labels
     if value is None:
-        raise Exception(f"No value for {pee():04o}")
+        raise Exception(f"No value for {pee():04o} {errinfo['lnum']}: {errinfo['origLine']}")
     if image:
         debug(f"Store {value:04o} at {pee():04o}")
         image[pee()] = value & 0o7777
@@ -187,8 +188,13 @@ def negate(x):
     return x ^ 0o7777
 
 
-def parse(line, store=foo):
-    global undefined
+def parse(line, store=foo, recurse=True):
+  global undefined, errinfo
+
+  try:
+    if not recurse:
+       errinfo['lnum'] += 1
+       errinfo['origLine'] = line.rstrip()
     line = re.sub(r'\[.*$', '', line)
 
     m = re.compile(r'^([^[]*)\[(.*)').match(line)
@@ -266,16 +272,22 @@ def parse(line, store=foo):
         symbol = m.group(1)
         if symbol in symtab:
             value = symtab[symbol]
-            debug(f"symbol {symbol} is {value:04o}")
+            if value is not None:
+                debug(f"symbol {symbol} is {value:04o}")
             return store(value)
         elif symbol in labels:
             value = labels[symbol]
-            debug(f"label {symbol} is {value:04o}")
+            if value is not None:
+                debug(f"label {symbol} is {value:04o}")
             return store(value)
         else:
             store(0)
             return undefined(symbol)
-    raise Exception(f"Syntax error: {line}")
+    raise Exception(f"Syntax error: {errinfo['lnum']}: {errinfo['origLine']} parsing {line}")
+  except TypeError:
+      raise Exception(f"Type error: {errinfo['lnum']}: {errinfo['origLine']} parsing {line}")
+  except KeyError as e:
+      raise Exception(f"Bad character {e}: {errinfo['lnum']}: {errinfo['origLine']} parsing {line}")
 
 
 if __name__ == "__main__":
@@ -284,17 +296,18 @@ if __name__ == "__main__":
     labels = {}
     labels["p"] = 0
     undefined = zero
+    errinfo = {'lnum': 0, 'origLine':''}
     image = None
     with open(sys.argv[1]) as f:
         for line in f:
-            parse(line, core)
+            parse(line, core, False)
     debug("PASS 2")
     labels["p"] = 0
     undefined = error
     image = [None] * memsize
     with open(sys.argv[1]) as f:
         for line in f:
-            parse(line, core)
+            parse(line, core, False)
     for i in range(memsize):
         if image[i] is not None:
             print(f"{i:04o} {image[i]:04o}")
