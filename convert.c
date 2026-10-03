@@ -16,7 +16,7 @@ static void convert_to_utf8(unsigned c)
   fputs(x[c], stdout);
 }
 
-static void convert_to_linc(const char *c)
+static int convert_to_linc(const char *c)
 {
   switch (*c) {
   case '0': return 000;
@@ -85,6 +85,8 @@ static void convert_to_linc(const char *c)
   case ':': return 076;
   case 'y': return 077;
   }
+  fprintf(stderr, "Bad input.\n");
+  exit(1);
 }
 
 static unsigned getword(void)
