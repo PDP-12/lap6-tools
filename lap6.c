@@ -410,8 +410,10 @@ static word_t *blank(word_t *data, word_t word)
 {
   int n = (data - input) % BLOCK_WORDS;
   int i;
-  for (i = n; i < BLOCK_WORDS; i++)
-    *data++ = word;
+  if (n > 0) {
+    for (i = n; i < BLOCK_WORDS; i++)
+      *data++ = word;
+  }
   return data;
 }
 
