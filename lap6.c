@@ -493,8 +493,12 @@ static void write_manuscript_to(FILE *f, word_t *data)
   for (i = 0; i < BLOCK_WORDS; i++) {
     word = data[i];
     c = (word >> 6) & 077;
+    if (c == 077)
+      exit(0);
     fputs(convert_to_utf8(c), stdout);
     c = word & 077;
+    if (c == 077)
+      exit(0);
     fputs(convert_to_utf8(c), stdout);
   }
 }
