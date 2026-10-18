@@ -515,17 +515,40 @@ static void write_manuscript_to(FILE *f, word_t *data, int words)
   }
 }
 
+static int check_manuscript(int first, int last, word_t *data)
+{
+  int i;
+
+  if (first) {
+    if ((data[0] != 02065) || (data[1] != 05712))
+      fprintf(stderr, "Warning: the manuscript doesn't begin with 2065 5712.\n");
+    return 2;
+  }
+
+  if (last) {
+    for (i = 0; i < BLOCK_WORDS; i++) {
+      if (((data[i] & 07700) == 07700) || ((data[i] & 00077) == 00077))
+        return 0;
+    }
+    fprintf(stderr, "Warning: the manuscript doesn't end with 77.\n");
+  }
+
+  return 0;
+}
+
 static void add_manuscript_entry(const char *name, word_t *block, word_t *blocks)
 {
   word_t data[BLOCK_WORDS];
   int i, n = *block, m = *blocks;
+  int header;
   if (!found(name))
     return;
   if (*block == EMPTY && *blocks == EMPTY)
     fail("Entry has no manuscript.");
   for (i = 0; i < m; i++) {
     read_block(n++, data);
-    write_manuscript_to(stdout, data, BLOCK_WORDS);
+    header = check_manuscript(i == 0, i == m - 1, data);
+    write_manuscript_to(stdout, data + header, BLOCK_WORDS - header);
   }
   exit(0);
 }
