@@ -380,10 +380,22 @@ static int getunicode()
 
 static int get_manuscript(word_t *data)
 {
+  static int manuscript_state = 0;
   int c1, c2;
+
+  switch (manuscript_state) {
+  case 0: *data = 02065; manuscript_state++; return 1;
+  case 1: *data = 05712; manuscript_state++; return 1;
+  case 2: break;
+  case 3: return 0;
+  }
+
   c1 = getunicode();
-  if (c1 == EOF)
-    return 0;
+  if (c1 == EOF) {
+    *data = 07777;
+    manuscript_state++;
+    return 1;
+  }
   c2 = getunicode();
   if (c2 == EOF)
     c2 = 'y';
