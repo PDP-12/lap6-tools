@@ -498,11 +498,11 @@ static void save_manuscript_entry(const char *name, word_t *block, word_t *block
   save_input("Overwriting manuscript", get_manuscript, 07777, block, blocks);
 }
 
-static void write_manuscript_to(FILE *f, word_t *data)
+static void write_manuscript_to(FILE *f, word_t *data, int words)
 {
   word_t word, c;
   int i;
-  for (i = 0; i < BLOCK_WORDS; i++) {
+  for (i = 0; i < words; i++) {
     word = data[i];
     c = (word >> 6) & 077;
     if (c == 077)
@@ -525,7 +525,7 @@ static void add_manuscript_entry(const char *name, word_t *block, word_t *blocks
     fail("Entry has no manuscript.");
   for (i = 0; i < m; i++) {
     read_block(n++, data);
-    write_manuscript_to(stdout, data);
+    write_manuscript_to(stdout, data, BLOCK_WORDS);
   }
   exit(0);
 }
@@ -537,10 +537,10 @@ static void save_binary_entry(const char *name, word_t *block, word_t *blocks)
   save_input("Overwriting binary", get_binary, 00000, block, blocks);
 }
 
-static void write_binary_to(FILE *f, word_t *data)
+static void write_binary_to(FILE *f, word_t *data, int words)
 {
   int i;
-  for (i = 0; i < BLOCK_WORDS; i++) {
+  for (i = 0; i < words; i++) {
     fputc(data[i] & 0xFF, f);
     fputc((data[i] >> 8) & 0xF, f);
   }
@@ -556,7 +556,7 @@ static void load_binary_entry(const char *name, word_t *block, word_t *blocks)
     fail("Entry has no binary.");
   for (i = 0; i < m; i++) {
     read_block(n++, data);
-    write_binary_to(stdout, data);
+    write_binary_to(stdout, data, BLOCK_WORDS);
   }
   exit(0);
 }
@@ -741,7 +741,7 @@ static void read_binary_blocks(void)
 
   for (i = 0; i < blocks; i++) {
     read_block(block++, data);
-    write_binary_to(stdout, data);
+    write_binary_to(stdout, data, BLOCK_WORDS);
   }
 }
 
