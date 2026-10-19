@@ -2,6 +2,8 @@
 
 typedef unsigned short word_t;
 
+#define UNUSED(X) (void)X
+
 /*
 7777 0000 HLT
 7777 0005 ZTA
@@ -73,7 +75,7 @@ typedef unsigned short word_t;
 
 static void alpha(FILE *f, word_t code)
 {
-  fprintf(f, "%o", code);
+  fprintf(f, " %o", code);
 }
 
 static void beta(FILE *f, word_t code)
@@ -82,9 +84,20 @@ static void beta(FILE *f, word_t code)
     alpha(f, code);
 }
 
+static void X(FILE *f, word_t code)
+{
+  fprintf(f, " %04o", code & 01777);
+}
+
 static word_t second(FILE *f, word_t insn, word_t *data, word_t address)
 {
-  fprintf(f, "%04o", data[address++]);
+  UNUSED(insn);
+  word_t d = data[address++];
+  fprintf(f, "  [ %4o", d);
+  if (d >= 04000) {
+    int sd = d ^ 07777;
+    fprintf(f, " (-%o)", sd);
+  }
   return address;
 }
 
@@ -161,20 +174,22 @@ static struct something table[] = {
   { 07740, 01500, "SRO", 00020, "i",  00017, beta,  indexing },
   { 07740, 01540, "BCL", 00020, "i",  00017, beta,  indexing },
   { 07740, 01600, "BSE", 00020, "i",  00017, beta,  indexing },
-  { 07740, 01640, "BCM", 00020, "i",  00017, beta,  indexing },
+  { 07740, 01640, "BCO", 00020, "i",  00017, beta,  indexing },
   { 07740, 01740, "DSC", 00020, "i",  00017, beta,  indexing },
-  { 06000, 02000, "ADD", 00000, NULL, 00000, NULL,  NULL },
-  { 06000, 04000, "STC", 00000, NULL, 00000, NULL,  NULL },
-  { 06000, 06000, "JMP", 00000, NULL, 00000, NULL,  NULL }
+  { 06000, 02000, "ADD", 00000, NULL, 01777, X,     NULL },
+  { 06000, 04000, "STC", 00000, NULL, 01777, X,     NULL },
+  { 06000, 06000, "JMP", 00000, NULL, 01777, X,     NULL }
 };
 
-word_t disassemble(FILE *f, word_t address, word_t *data)
+word_t disassemble(FILE *f, word_t address, word_t *data, word_t base)
 {
+  word_t addr = address + base;
   word_t insn = data[address++];
-  int i;
+  unsigned i;
   for (i = 0; i < sizeof table / sizeof table[0]; i++) {
     if ((insn & table[i].insn_mask) != table[i].insn_code)
       continue;
+    fprintf(f, "\n%04o  %04o     ", (int)addr, (int)insn);
     fprintf(f, "%s", table[i].insn_name);
     if ((insn & table[i].i_mask) != 0)
       fprintf(f, " %s", table[i].i_name);

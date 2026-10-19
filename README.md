@@ -26,3 +26,5 @@ It managed all this with only 1024 instructions in memory at a time.
 | mk      | tape      | Mark tape
 | rb      | tape b n  | Read n binary blocks starting from b
 | wb      | tape b n  | Write n binary blocks starting from b
+| un      | tape name | Disassemble binary from tape, to stdout
+| ub      | tape b n  | Disassemble binary blocks starting from b
