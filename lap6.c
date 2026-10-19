@@ -13,6 +13,8 @@
 #define INDEX_BLOCKS  2
 #define EMPTY         05757
 
+#define UNUSED(X)  (void)X
+
 typedef unsigned short word_t;
 typedef void (*entry_fn)(const char *name, word_t *block, word_t *blocks);
 
@@ -311,6 +313,7 @@ static void print_name_and_manuscript(const char *name, word_t *block, word_t *b
 
 static void print_binary(const char *name, word_t *block, word_t *blocks)
 {
+  UNUSED(name);
   if (*block != EMPTY && *blocks != EMPTY)
     fprintf(stdout, "  B %03o %-3o", *block, *blocks);
   fprintf(stdout, "\n");
@@ -341,6 +344,7 @@ static void overlap(const char *name, word_t *block, word_t *blocks)
 {
   int input_end = *input_block + input_blocks;
   int this_end = (*block & 0777) + (*blocks & 0777);
+  UNUSED(name);
   if (input_end > (*block & 0777) && *input_block < this_end)
     *input_block = -1;
 }
@@ -502,6 +506,9 @@ static int found(const char *name)
 
 static void ignore(const char *name, word_t *block, word_t *blocks)
 {
+  UNUSED(name);
+  UNUSED(block);
+  UNUSED(blocks);
 }
 
 static void save_manuscript_entry(const char *name, word_t *block, word_t *blocks)
@@ -662,6 +669,7 @@ static void used(const char *name, word_t *block, word_t *blocks)
 
 static void delete_manuscript_entry(const char *name, word_t *block, word_t *blocks)
 {
+  UNUSED(blocks);
   if (!found(name))
     return;
   if (block[2] == EMPTY && block[3] == EMPTY) {
@@ -676,6 +684,7 @@ static void delete_manuscript_entry(const char *name, word_t *block, word_t *blo
 
 static void delete_binary_entry(const char *name, word_t *block, word_t *blocks)
 {
+  UNUSED(blocks);
   if (!found(name))
     return;
   if (block[-1] == EMPTY && block[-2] == EMPTY) {
@@ -912,7 +921,7 @@ static const struct {
 
 static void usage(const char *name)
 {
-  int i;
+  unsigned i;
   fprintf(stderr, "Usage: %s command file [name]\n", name);
   fprintf(stderr, "Commands:");
   for (i = 0; i < sizeof command / sizeof command[0]; i++)
@@ -925,7 +934,7 @@ static void usage(const char *name)
 int main(int argc, char **argv)
 {
   const char *arg1 = argv[1];
-  int i;
+  unsigned i;
 
   if (arg1 == NULL)
     usage(argv[0]);
