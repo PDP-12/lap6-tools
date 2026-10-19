@@ -527,11 +527,11 @@ static void write_manuscript_to(FILE *f, word_t *data, int words)
     c = (word >> 6) & 077;
     if (c == 077)
       exit(0);
-    fputs(convert_to_utf8(c), stdout);
+    fputs(convert_to_utf8(c), f);
     c = word & 077;
     if (c == 077)
       exit(0);
-    fputs(convert_to_utf8(c), stdout);
+    fputs(convert_to_utf8(c), f);
   }
 }
 
