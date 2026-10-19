@@ -1,4 +1,4 @@
-CFLAGS=-g -Wall
+CFLAGS=-g -Wall -Wextra
 
 all: lap6.py convert lap6 check
 
