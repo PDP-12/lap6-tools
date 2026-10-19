@@ -901,33 +901,36 @@ static void create_noindex(const char *file)
 
 static const struct {
   const char *name;
+  int min, max;
   void (*open)(const char *);
   void (*fn)(void);
 } command[] = {
-  { "dx", read_index,     display_index },
-  { "sx", read_noindex,   search_index },
-  { "sm", write_index,    save_manuscript },
-  { "am", read_index,     add_manuscript },
-  { "sb", write_index,    save_binary },
-  { "lo", read_index,     load_binary },
-  { "dm", write_index,    delete_manuscript },
-  { "db", write_index,    delete_binary },
-  { "du", read_index,     display_unused },
-  { "mx", write_noindex,  make_index },
-  { "mk", create_noindex, mark_tape },
-  { "rb", read_noindex,   read_binary_blocks },
-  { "wb", write_noindex,  write_binary_blocks }
+  { "dx", 3, 3, read_index,     display_index },
+  { "sx", 3, 3, read_noindex,   search_index },
+  { "sm", 4, 4, write_index,    save_manuscript },
+  { "am", 4, 4, read_index,     add_manuscript },
+  { "sb", 4, 4, write_index,    save_binary },
+  { "lo", 4, 4, read_index,     load_binary },
+  { "dm", 4, 4, write_index,    delete_manuscript },
+  { "db", 4, 4, write_index,    delete_binary },
+  { "du", 3, 3, read_index,     display_unused },
+  { "mx", 3, 3, write_noindex,  make_index },
+  { "mk", 3, 3, create_noindex, mark_tape },
+  { "rb", 4, 5, read_noindex,   read_binary_blocks },
+  { "wb", 4, 5, write_noindex,  write_binary_blocks }
 };
 
 static void usage(const char *name)
 {
   unsigned i;
-  fprintf(stderr, "Usage: %s command file [name]\n", name);
+  fprintf(stderr, "Usage: %s command file [name | block blocks]\n", name);
   fprintf(stderr, "Commands:");
   for (i = 0; i < sizeof command / sizeof command[0]; i++)
     fprintf(stderr, " %s", command[i].name);
   fprintf(stderr, "\nFile: tape image file name.\n");
   fprintf(stderr, "Name: LAP6 entry name.\n");
+  fprintf(stderr, "Block: block number in octal.\n");
+  fprintf(stderr, "Blocks: number of blocks in octal.\n");
   exit(1);
 }
 
@@ -944,6 +947,8 @@ int main(int argc, char **argv)
 
   for (i = 0; i < sizeof command / sizeof command[0]; i++) {
     if (strcmp(arg1, command[i].name) == 0) {
+      if (argc < command[i].min || argc > command[i].max)
+        usage(argv[0]);
       command[i].open(argv[2]);
       command[i].fn();
       return 0;
