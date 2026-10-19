@@ -24,7 +24,7 @@ lap6 dm FOO
 lap6 dx | grep "FOO" >/dev/null && fail "Test failed."
 printf "\001\002\003\004" | lap6 sb BAR
 lap6 dx | grep "BAR  * B " >/dev/null || fail "Test failed."
-lap6 lo BAR | od | grep " 001001 002003 " >/dev/null || fail "Test failed."
+lap6 lo BAR | od | grep " 001001 \+002003 " >/dev/null || fail "Test failed."
 echo "Tape filing test succeeded."
 
 exit 0
