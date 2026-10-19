@@ -268,7 +268,7 @@ static void entry_name(word_t *data, char *name)
   unsigned i;
   *name = 0;
   for (i = 0; i < 8; i++) {
-    if (i & 1) 
+    if (i & 1)
       word <<= 6;
     else
       word = data[i >> 1];
@@ -582,6 +582,15 @@ static void write_binary_to(FILE *f, word_t *data, int words)
   }
 }
 
+extern word_t disassemble(FILE *f, word_t address, word_t *data, word_t base);
+static void disassemble_binary_to(FILE *f, word_t *data, int words, word_t base)
+{
+  int i;
+  for (i = 0; i < words; i++) {
+    disassemble(f, i, data, base);
+  }
+}
+
 static void load_binary_entry(const char *name, word_t *block, word_t *blocks)
 {
   word_t data[BLOCK_WORDS];
@@ -593,6 +602,21 @@ static void load_binary_entry(const char *name, word_t *block, word_t *blocks)
   for (i = 0; i < m; i++) {
     read_block(n++, data);
     write_binary_to(stdout, data, BLOCK_WORDS);
+  }
+  exit(0);
+}
+
+static void disassemble_binary_entry(const char *name, word_t *block, word_t *blocks)
+{
+  word_t data[BLOCK_WORDS];
+  int i, n = *block, m = *blocks;
+  if (!found(name))
+    return;
+  if (*block == EMPTY && *blocks == EMPTY)
+    fail("Entry %s has no binary.", name);
+  for (i = 0; i < m; i++) {
+    read_block(n++, data);
+    disassemble_binary_to(stdout, data, BLOCK_WORDS, i*BLOCK_WORDS);
   }
   exit(0);
 }
@@ -642,6 +666,12 @@ static void save_binary(void)
 static void load_binary(void)
 {
   traverse(ignore, load_binary_entry);
+  fail("Binary %s not found.", arg3);
+}
+
+static void disassemble_binary(void)
+{
+  traverse(ignore, disassemble_binary_entry);
   fail("Binary %s not found.", arg3);
 }
 
@@ -781,6 +811,26 @@ static void read_binary_blocks(void)
   }
 }
 
+static void disassemble_binary_blocks(void)
+{
+  char *end;
+  word_t data[BLOCK_WORDS];
+  int block, blocks;
+  int i;
+
+  block = strtoul(arg3, &end, 8);
+  if (end == arg3)
+    fail("Invalid block number: %s.", arg3);
+  blocks = strtoul(arg4, &end, 8);
+  if (end == arg3)
+    fail("Invalid number of blocks: %s.", arg4);
+
+  for (i = 0; i < blocks; i++) {
+    read_block(block++, data);
+    disassemble_binary_to(stdout, data, BLOCK_WORDS, i*BLOCK_WORDS);
+  }
+}
+
 static void write_binary_blocks(void)
 {
   char *end;
@@ -797,7 +847,7 @@ static void write_binary_blocks(void)
   exit(0);
 }
 
-int metadata(int *block_size, int *forward_offset, int *reverse_offset)
+void metadata(int *block_size, int *forward_offset, int *reverse_offset)
 {
   long size;
   if (fseek(tape, 0L, SEEK_END) == -1)
@@ -822,8 +872,7 @@ int metadata(int *block_size, int *forward_offset, int *reverse_offset)
     *forward_offset = (signed short)data[1];
     *reverse_offset = (signed short)data[2];
   } else
-    return -1;
-  return 0;
+    fail("Getting metadata with wrong size: %03o", size);
 }
 
 static void get_metadata(void)
@@ -901,13 +950,15 @@ static const struct {
   { "am", read_index,     add_manuscript },
   { "sb", write_index,    save_binary },
   { "lo", read_index,     load_binary },
+  { "un", read_index,     disassemble_binary },
   { "dm", write_index,    delete_manuscript },
   { "db", write_index,    delete_binary },
   { "du", read_index,     display_unused },
   { "mx", write_noindex,  make_index },
   { "mk", create_noindex, mark_tape },
   { "rb", read_noindex,   read_binary_blocks },
-  { "wb", write_noindex,  write_binary_blocks }
+  { "wb", write_noindex,  write_binary_blocks },
+  { "ub", read_noindex,   disassemble_binary_blocks }
 };
 
 static void usage(const char *name)
