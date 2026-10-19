@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <getopt.h>
 #include <unistd.h>
@@ -24,9 +26,20 @@ static const char *arg4 = NULL;
 static int forward_offset;
 static FILE *tape;
 
-static void fail(const char *message)
+static const char *strerrno(void)
 {
-  fprintf(stderr, "ERROR: %s\n", message);
+  return strerror(errno);
+}
+
+static void fail(const char *format, ...)
+{
+  va_list ap;
+  va_start(ap, format);
+  fprintf(stderr, "ERROR: ");
+  vfprintf(stderr, format, ap);
+  fputc('\n', stderr);
+  fflush(stderr);
+  va_end(ap);
   exit(1);
 }
 
@@ -165,7 +178,7 @@ static unsigned char convert_to_linc(int c)
   case 'y': return 077;
   case 0x02B8: return 077; //ʸ
   default:
-    fail("Bad data in input.");
+    fail("Bad data in input: %c %03o.", c, c);
     return 077;
   }
 }
@@ -181,7 +194,7 @@ static unsigned short read_uint16(void)
   unsigned char data[2];
   unsigned short word;
   if (fread(data, 1, 2, tape) != 2)
-    fail("Reading block.");
+    fail("Reading tape word: %s.", strerrno());
   word = data[1];
   word <<= 8;
   word |= data[0];
@@ -197,7 +210,7 @@ static word_t read_word(void)
 {
   word_t word = read_uint16();
   if ((word & 0xF000) != 0)
-    fail("Bad data in block.");
+    fail("Word in block exceeds 12 bit number: %06o.", word);
   return word;
 }
 
@@ -205,7 +218,7 @@ static void read_block(int block, word_t *data)
 {
   int i;
   if (tape_seek(block) == -1)
-    fail("Seeking to block.");
+    fail("Seeking to block %03o: %s.", block, strerrno());
   for (i = 0; i < BLOCK_WORDS; i++)
     data[i] = read_word();
 }
@@ -216,14 +229,14 @@ static void write_word(word_t word)
   data[0] = word & 0xFF;
   data[1] = word >> 8;
   if (fwrite(data, 1, 2, tape) != 2)
-    fail("Writing block.");
+    fail("Writing tape word: %s.", strerrno());
 }
 
 static void write_block(int block, word_t *data)
 {
   int i;
   if (tape_seek(block) == -1)
-    fail("Seeking to block.");
+    fail("Seeking to block %03o: %s.", block, strerrno());
   for (i = 0; i < BLOCK_WORDS; i++)
     write_word(data[i]);
 }
@@ -360,21 +373,21 @@ static int getunicode()
     return c1;
   c2 = getchar();
   if (c2 == EOF)
-    fail("Bad data in input.");
+    fail("Bad Unicode data in input.");
   if ((c1 & 0xE0) == 0xC0)
     return ((c1 & 0x1F) << 6) | (c2 & 0x3F);
   c3 = getchar();
   if (c3 == EOF)
-    fail("Bad data in input.");
+    fail("Bad Unicode data in input.");
   if ((c1 & 0xF0) == 0xE0)
     return ((c1 & 0x0F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F);
   c4 = getchar();
   if (c4 == EOF)
-    fail("Bad data in input.");
+    fail("Bad Unicode data in input.");
   if ((c1 & 0xF8) == 0xF0)
     return ((c1 & 0x07) << 18) | ((c2 & 0x3F) << 12)
          | ((c3 & 0x3F) << 6)  | (c4 & 0x3F);
-  fail("Bad data in input.");
+  fail("Bad Unicode data in input.");
   return 0;
 }
 
@@ -412,9 +425,9 @@ static int get_binary(word_t *data)
   c2 = getchar();
   if (c2 == EOF)
     fail("Binary input must be even number of octets.");
-  if (c2 & 0xF0)
-    fail("Bad data in input.");
   *data = c1 | (c2 << 8);
+  if (c2 & 0xF0)
+    fail("Word in input exceeds 12 bit number: %06o.", *data);
   return 1;
 }
 
@@ -478,7 +491,7 @@ static word_t *vacant(void)
     data[7] = EMPTY;
     return data;
   }
-  fail("Directory full.");
+  fail("Tape index full.");
   return NULL;
 }
 
@@ -544,7 +557,7 @@ static void add_manuscript_entry(const char *name, word_t *block, word_t *blocks
   if (!found(name))
     return;
   if (*block == EMPTY && *blocks == EMPTY)
-    fail("Entry has no manuscript.");
+    fail("Entry %s has no manuscript.", name);
   for (i = 0; i < m; i++) {
     read_block(n++, data);
     header = check_manuscript(i == 0, i == m - 1, data);
@@ -576,7 +589,7 @@ static void load_binary_entry(const char *name, word_t *block, word_t *blocks)
   if (!found(name))
     return;
   if (*block == EMPTY && *blocks == EMPTY)
-    fail("Entry has no binary.");
+    fail("Entry %s has no binary.", name);
   for (i = 0; i < m; i++) {
     read_block(n++, data);
     write_binary_to(stdout, data, BLOCK_WORDS);
@@ -615,7 +628,7 @@ static void save_manuscript(void)
 static void add_manuscript(void)
 {
   traverse(add_manuscript_entry, ignore);
-  fail("Manuscript not found.");
+  fail("Manuscript %s not found.", arg3);
 }
 
 static void save_binary(void)
@@ -629,7 +642,7 @@ static void save_binary(void)
 static void load_binary(void)
 {
   traverse(ignore, load_binary_entry);
-  fail("Binary not found.");
+  fail("Binary %s not found.", arg3);
 }
 
 static char used_block[TAPE_BLOCKS];
@@ -738,13 +751,13 @@ static void mark_tape(void)
   int reverse_offset = forward_offset = -8;
   long size;
   if (tape_seek(TAPE_BLOCKS + 10) == -1)
-    fail("Seeking to block.");
+    fail("Seeking to block %03o: %s.", TAPE_BLOCKS + 10, strerrno());
   write_word(BLOCK_WORDS);
   write_word(forward_offset);
   write_word(reverse_offset);
   size = ftell(tape);
   if (size == -1 || ftruncate(fileno(tape), size) == -1)
-    fail("Setting image file size.");
+    fail("Setting image file size: %s.", strerrno());
   exit(0);
 }
 
@@ -757,10 +770,10 @@ static void read_binary_blocks(void)
 
   block = strtoul(arg3, &end, 8);
   if (end == arg3)
-    fail("Invalid block number.");
+    fail("Invalid block number: %s.", arg3);
   blocks = strtoul(arg4, &end, 8);
-  if (end == arg3)
-    fail("Invalid number of blocks.");
+  if (end == arg4)
+    fail("Invalid number of blocks: %s.", arg4);
 
   for (i = 0; i < blocks; i++) {
     read_block(block++, data);
@@ -776,7 +789,7 @@ static void write_binary_blocks(void)
 
   block = strtoul(arg3, &end, 8);
   if (end == arg3)
-    fail("Invalid block number.");
+    fail("Invalid block number: %s.", arg3);
 
   collect_input(get_binary, 00000);
   for (i = 0; i < input_blocks; i++)
@@ -788,10 +801,10 @@ int metadata(int *block_size, int *forward_offset, int *reverse_offset)
 {
   long size;
   if (fseek(tape, 0L, SEEK_END) == -1)
-    fail("Getting file size");
+    fail("Getting file size: %s.", strerrno());
   size = ftell(tape);
   if (size == -1)
-    fail("Getting file size");
+    fail("Getting file size: %s.", strerrno());
   if (size == TAPE_BLOCKS * BLOCK_WORDS * 2) {
     /* Plain image. */
     *block_size = BLOCK_WORDS;
@@ -801,7 +814,7 @@ int metadata(int *block_size, int *forward_offset, int *reverse_offset)
     /* Extended image with additional meta data. */
     word_t data[3];
     if (tape_seek(size / BLOCK_OCTETS) == -1)
-      fail("Seeking to metadata.");
+      fail("Seeking to metadata: %s.", strerrno());
     data[0] = read_int16();
     data[1] = read_int16();
     data[2] = read_int16();
@@ -818,9 +831,9 @@ static void get_metadata(void)
   int block_size, reverse_offset;
   metadata(&block_size, &forward_offset, &reverse_offset);
   if (block_size != BLOCK_WORDS)
-    fail("Tape has bad block size");
+    fail("Tape has bad block size: %03o.", block_size);
   if (forward_offset != reverse_offset)
-    fail("Forward offset differs from reverse offset");
+    fail("Forward offset differs from reverse offset: %06o, %06o.", forward_offset, reverse_offset);
 }
 
 static void get_index(void)
@@ -833,7 +846,7 @@ static void get_index(void)
     fprintf(stderr, "trying %03o.\n", directory_block);
     read_block(directory_block, directory);
     if (!empty_entry(&directory[0]))
-      fail("Directory block has wrong format.");
+      fail("Tape index block has wrong format.");
   }
   read_block(directory_block + 1, directory + BLOCK_WORDS);
 }
@@ -842,7 +855,7 @@ static void read_index(const char *file)
 {
   tape = fopen(file, "rb");
   if (tape == NULL)
-    fail("Open tape.");
+    fail("Open tape for reading: %s.", strerrno());
   get_index();
 }
 
@@ -850,7 +863,7 @@ static void write_index(const char *file)
 {
   tape = fopen(file, "r+b");
   if (tape == NULL)
-    fail("Open tape.");
+    fail("Open tape for writing: %s.", strerrno());
   get_index();
 }
 
@@ -858,7 +871,7 @@ static void read_noindex(const char *file)
 {
   tape = fopen(file, "rb");
   if (tape == NULL)
-    fail("Open tape.");
+    fail("Open tape for reading: %s.", strerrno());
   get_metadata();
 }
 
@@ -866,7 +879,7 @@ static void write_noindex(const char *file)
 {
   tape = fopen(file, "r+b");
   if (tape == NULL)
-    fail("Open tape.");
+    fail("Open tape for writing: %s.", strerrno());
   get_metadata();
 }
 
@@ -874,7 +887,7 @@ static void create_noindex(const char *file)
 {
   tape = fopen(file, "wb");
   if (tape == NULL)
-    fail("Open tape.");
+    fail("Creating new tape: %s.", strerrno());
 }
 
 static const struct {
@@ -911,22 +924,23 @@ static void usage(const char *name)
 
 int main(int argc, char **argv)
 {
+  const char *arg1 = argv[1];
   int i;
 
-  if (argv[1] == NULL)
+  if (arg1 == NULL)
     usage(argv[0]);
 
   arg3 = argv[3];
   arg4 = argv[4];
 
   for (i = 0; i < sizeof command / sizeof command[0]; i++) {
-    if (strcmp(argv[1], command[i].name) == 0) {
+    if (strcmp(arg1, command[i].name) == 0) {
       command[i].open(argv[2]);
       command[i].fn();
       return 0;
     }
   }
 
-  fail("Unknonwn command.");
+  fail("Unknonwn command: %s.", arg1);
   return 1;
 }
