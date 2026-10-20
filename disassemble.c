@@ -109,6 +109,25 @@ static word_t indexing(FILE *f, word_t insn, word_t *data, word_t address)
     return second(f, insn, data, address);
 }
 
+static word_t magtape(FILE *f, word_t insn, word_t *data, word_t address)
+{
+  word_t i = insn & 020;
+  word_t u = (insn & 010) >> 3;
+  word_t d = data[address++];
+  word_t q = (d & 07000) >> 9;
+  word_t b = d & 0777;
+  if (u)
+    fprintf(f, " u");
+  fprintf(f, "  [ %s u%o %o|%o",
+    i ? "move" : "stop",
+    (int)u, (int)q, (int)b);
+  if (b >= 0300 && b < 0350) fprintf(f, " %o=LAP6+%o",  (int)b, (int)(b-0300));
+  if (b >= 0350 && b < 0426) fprintf(f, " %o=WA+%o",    (int)b, (int)(b-0350));
+  if (b >= 0426 && b < 0430) fprintf(f, " %o=INDEX+%o", (int)b, (int)(b-0426));
+  if (b >= 0430 && b < 0777) fprintf(f, " %o=FILE+%o",  (int)b, (int)(b-0430));
+  return address;
+}
+
 struct something {
   word_t insn_mask, insn_code;  const char *insn_name;
   word_t i_mask; const char *i_name;
@@ -153,14 +172,14 @@ static struct something table[] = {
   { 07757, 00516, "RSW", 00020, "i",  00000, NULL,  NULL },
   { 07757, 00517, "LSW", 00020, "i",  00000, NULL,  NULL },
   { 07700, 00500, "OPR", 00020, "i",  00000, NULL,  NULL },
-  { 07707, 00700, "RDC", 00010, "u",  00000, NULL,  second },
-  { 07707, 00701, "RCG", 00010, "u",  00000, NULL,  second },
-  { 07707, 00702, "RDE", 00010, "u",  00000, NULL,  second },
-  { 07707, 00703, "MTB", 00010, "u",  00000, NULL,  second },
-  { 07707, 00704, "WRC", 00010, "u",  00000, NULL,  second },
-  { 07707, 00705, "WCG", 00010, "u",  00000, NULL,  second },
-  { 07707, 00706, "WRI", 00010, "u",  00000, NULL,  second },
-  { 07707, 00707, "CHK", 00010, "u",  00000, NULL,  second },
+  { 07707, 00700, "RDC", 00020, "i",  00000, NULL,  magtape },
+  { 07707, 00701, "RCG", 00020, "i",  00000, NULL,  magtape },
+  { 07707, 00702, "RDE", 00020, "i",  00000, NULL,  magtape },
+  { 07707, 00703, "MTB", 00020, "i",  00000, NULL,  magtape },
+  { 07707, 00704, "WRC", 00020, "i",  00000, NULL,  magtape },
+  { 07707, 00705, "WCG", 00020, "i",  00000, NULL,  magtape },
+  { 07707, 00706, "WRI", 00020, "i",  00000, NULL,  magtape },
+  { 07707, 00707, "CHK", 00020, "i",  00000, NULL,  magtape },
   { 07740, 01000, "LDA", 00020, "i",  00017, beta,  indexing },
   { 07740, 01040, "STA", 00020, "i",  00017, beta,  indexing },
   { 07740, 01100, "ADA", 00020, "i",  00017, beta,  indexing },
