@@ -73,6 +73,23 @@ typedef unsigned short word_t;
 6000 6000 JMP %a
 */
 
+static void keyboard_pair(FILE *f, word_t code)
+{
+  static const char *x[] = {
+    "0",  "1",  "2",  "3",  "4",  "5",  "6",  "7",
+    "8",  "9",  " ",  " ",  " ",  "i",  "p",  "-",
+    "+",  "|",  "#",  " ",  "A",  "B",  "C",  "D",
+    "E",  "F",  "G",  "H",  "I",  "J",  "K",  "L",
+    "M",  "N",  "O",  "P",  "Q",  "R",  "S",  "T",
+    "U",  "V",  "W",  "X",  "Y",  "Z",  " ",  "→",
+    "?",  "=",  "u",  ",",  ".",  "⊟",  "[",  "_",
+    "\"", "„",  "<",  ">",  "]",  "x",  ":",  "y"
+  };
+  code &= 07777;
+  fputs(x[code >>  6], f);
+  fputs(x[code & 077], f);
+}
+
 static void alpha(FILE *f, word_t code)
 {
   fprintf(f, " %o", code);
@@ -207,8 +224,9 @@ word_t disassemble(FILE *f, word_t address, word_t *data, word_t base)
   for (i = 0; i < sizeof table / sizeof table[0]; i++) {
     if ((insn & table[i].insn_mask) != table[i].insn_code)
       continue;
-    fprintf(f, "\n%04o  %04o     ", (int)addr, (int)insn);
-    fprintf(f, "%s", table[i].insn_name);
+    fprintf(f, "\n%04o  %04o ", (int)addr, (int)insn);
+    keyboard_pair(f, insn);
+    fprintf(f, "     %s", table[i].insn_name);
     if ((insn & table[i].i_mask) != 0)
       fprintf(f, " %s", table[i].i_name);
     if (table[i].beta_mask)
