@@ -23,10 +23,13 @@ static word_t directory[INDEX_BLOCKS * BLOCK_WORDS];
 static word_t input[100 * BLOCK_WORDS];
 static int input_blocks, X;
 static int *input_block = &X;
+static const char *arg0 = NULL;
 static const char *arg3 = NULL;
 static const char *arg4 = NULL;
 static int forward_offset;
 static FILE *tape;
+static const char *convert_to_utf8(word_t c);
+static const char *(*convert)(word_t c) = convert_to_utf8;
 
 static const char *strerrno(void)
 {
@@ -278,7 +281,7 @@ static void entry_name(word_t *data, char *name)
     if (c == 077)
       strcat(name, " ");
     else
-      strcat(name, convert_to_utf8(c));
+      strcat(name, convert(c));
   }
   name += 7;
   while (*name == ' ')
@@ -527,11 +530,11 @@ static void write_manuscript_to(FILE *f, word_t *data, int words)
     c = (word >> 6) & 077;
     if (c == 077)
       exit(0);
-    fputs(convert_to_utf8(c), f);
+    fputs(convert(c), f);
     c = word & 077;
     if (c == 077)
       exit(0);
-    fputs(convert_to_utf8(c), f);
+    fputs(convert(c), f);
   }
 }
 
@@ -920,27 +923,58 @@ static const struct {
   { "wb", 4, 5, write_noindex,  write_binary_blocks }
 };
 
-static void usage(const char *name)
+static void usage(void)
 {
   unsigned i;
-  fprintf(stderr, "Usage: %s command file [name | block blocks]\n", name);
+  fprintf(stderr, "Usage: %s [-ASTU] command file [name | block blocks]\n", arg0);
   fprintf(stderr, "Commands:");
   for (i = 0; i < sizeof command / sizeof command[0]; i++)
     fprintf(stderr, " %s", command[i].name);
-  fprintf(stderr, "\nFile: tape image file name.\n");
+  fprintf(stderr, "\nOptions: -A for ASCII output, -S for Slyngstad, "
+          "-T for teletype, -U for UTF-8.\n");
+  fprintf(stderr, "File: tape image file name.\n");
   fprintf(stderr, "Name: LAP6 entry name.\n");
   fprintf(stderr, "Block: block number in octal.\n");
   fprintf(stderr, "Blocks: number of blocks in octal.\n");
   exit(1);
 }
 
+static void option(char x)
+{
+   switch (x) {
+   case 'A':
+      convert = convert_to_ascii;
+      break;
+   case 'S':
+      convert = convert_to_slyngstad;
+      break;
+   case 'T':
+      convert = convert_to_teletype;
+      break;
+   case 'U':
+      convert = convert_to_utf8;
+      break;
+   default:
+      usage();
+   }
+}
+
 int main(int argc, char **argv)
 {
-  const char *arg1 = argv[1];
+  const char *arg1;
   unsigned i;
 
+  arg0 = argv[0];
+
+  if (argc >= 2 && argv[1][0] == '-' && argv[1][2] == 0) {
+    option(argv[1][1]);
+    argv++;
+    argc--;
+  }
+
+  arg1 = argv[1];
   if (arg1 == NULL)
-    usage(argv[0]);
+    usage();
 
   arg3 = argv[3];
   arg4 = argv[4];
@@ -948,13 +982,13 @@ int main(int argc, char **argv)
   for (i = 0; i < sizeof command / sizeof command[0]; i++) {
     if (strcmp(arg1, command[i].name) == 0) {
       if (argc < command[i].min || argc > command[i].max)
-        usage(argv[0]);
+        usage();
       command[i].open(argv[2]);
       command[i].fn();
       return 0;
     }
   }
 
-  fail("Unknonwn command: %s.", arg1);
+  fail("Unknown command: %s.", arg1);
   return 1;
 }
