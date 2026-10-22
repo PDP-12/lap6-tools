@@ -177,7 +177,7 @@ static struct something table[] = {
   { 07777, 00015, "RTA", 00000, NULL, 00000, NULL,  NULL },
   { 07777, 00016, "NOP", 00000, NULL, 00000, NULL,  NULL },
   { 07777, 00017, "COM", 00000, NULL, 00000, NULL,  NULL },
-  { 07740, 00000, "MSC", 00000, NULL, 00000, alpha, NULL },
+  { 07740, 00000, "MSC", 00000, NULL, 00017, alpha, NULL },
   { 07740, 00040, "SET", 00020, "i",  00017, alpha, second },
   { 07740, 00100, "SAM", 00020, "i",  00017, alpha, NULL },
   { 07740, 00140, "DIS", 00020, "i",  00017, alpha, NULL },
