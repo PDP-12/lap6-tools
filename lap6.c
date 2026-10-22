@@ -592,12 +592,13 @@ static void write_binary_to(FILE *f, word_t *data, int words)
   }
 }
 
-extern word_t disassemble(FILE *f, word_t address, word_t *data, word_t base);
-static void disassemble_binary_to(FILE *f, word_t *data, int words, word_t base)
+extern word_t disassemble(FILE *f, word_t address, word_t *data);
+
+static void disassemble_binary_to(FILE *f, word_t *data, int blocks)
 {
   int i = 0;
-  while (i < words)
-    i = disassemble(f, i, data, base);
+  while (i < blocks * BLOCK_WORDS)
+    i = disassemble(f, i, data);
 }
 
 static void load_binary_entry(const char *name, word_t *block, word_t *blocks)
@@ -617,16 +618,14 @@ static void load_binary_entry(const char *name, word_t *block, word_t *blocks)
 
 static void disassemble_binary_entry(const char *name, word_t *block, word_t *blocks)
 {
-  word_t data[BLOCK_WORDS];
   int i, n = *block, m = *blocks;
   if (!found(name))
     return;
   if (*block == EMPTY && *blocks == EMPTY)
     fail("Entry %s has no binary.", name);
-  for (i = 0; i < m; i++) {
-    read_block(n++, data);
-    disassemble_binary_to(stdout, data, BLOCK_WORDS, i*BLOCK_WORDS);
-  }
+  for (i = 0; i < m; i++)
+    read_block(n++, &input[i * BLOCK_WORDS]);
+  disassemble_binary_to(stdout, input, m);
   exit(0);
 }
 
@@ -825,7 +824,6 @@ static void read_binary_blocks(void)
 static void disassemble_binary_blocks(void)
 {
   char *end;
-  word_t data[BLOCK_WORDS];
   int block, blocks;
   int i;
 
@@ -836,10 +834,9 @@ static void disassemble_binary_blocks(void)
   if (end == arg3)
     fail("Invalid number of blocks: %s.", arg4);
 
-  for (i = 0; i < blocks; i++) {
-    read_block(block++, data);
-    disassemble_binary_to(stdout, data, BLOCK_WORDS, i*BLOCK_WORDS);
-  }
+  for (i = 0; i < blocks; i++)
+    read_block(block++, &input[i * BLOCK_WORDS]);
+  disassemble_binary_to(stdout, input, blocks);
 }
 
 static void write_binary_blocks(void)

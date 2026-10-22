@@ -224,15 +224,14 @@ static struct something table[] = {
   { 06000, 06000, "JMP", 00000, NULL, 01777, X,     NULL }
 };
 
-word_t disassemble(FILE *f, word_t address, word_t *data, word_t base)
+word_t disassemble(FILE *f, word_t address, word_t *data)
 {
-  word_t addr = address + base;
-  word_t insn = data[address++];
+  word_t insn = data[address];
   unsigned i;
   for (i = 0; i < sizeof table / sizeof table[0]; i++) {
     if ((insn & table[i].insn_mask) != table[i].insn_code)
       continue;
-    fprintf(f, "\n%04o  %04o ", (int)addr, (int)insn);
+    fprintf(f, "\n%04o  %04o ", address++, insn);
     keyboard_pair(f, insn);
     fprintf(f, "     %s", table[i].insn_name);
     if ((insn & table[i].i_mask) != 0)
