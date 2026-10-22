@@ -126,6 +126,13 @@ static word_t indexing(FILE *f, word_t insn, word_t *data, word_t address)
     return second(f, insn, data, address);
 }
 
+static void area(FILE *f, word_t block, word_t start, word_t end, const char *name)
+{
+  if (block < start || block >= end)
+    return;
+  fprintf(f, "  [ %o=%s+%o", block, name, block - start);
+}
+
 static word_t magtape(FILE *f, word_t insn, word_t *data, word_t address)
 {
   word_t i = insn & 020;
@@ -138,10 +145,14 @@ static word_t magtape(FILE *f, word_t insn, word_t *data, word_t address)
   fprintf(f, "  [ %s u%o %o|%o",
     i ? "move" : "stop",
     (int)u, (int)q, (int)b);
-  if (b >= 0300 && b < 0350) fprintf(f, " %o=LAP6+%o",  (int)b, (int)(b-0300));
-  if (b >= 0350 && b < 0426) fprintf(f, " %o=WA+%o",    (int)b, (int)(b-0350));
-  if (b >= 0426 && b < 0430) fprintf(f, " %o=INDEX+%o", (int)b, (int)(b-0426));
-  if (b >= 0430 && b < 0777) fprintf(f, " %o=FILE+%o",  (int)b, (int)(b-0430));
+  area(f, b, 0300, 00317, "LAP6");
+  area(f, b, 0317, 00320, "FREE");
+  area(f, b, 0320, 00340, "LAP6");
+  area(f, b, 0340, 00350, "BIN");
+  area(f, b, 0350, 00426, "WA");
+  area(f, b, 0426, 00430, "INDEX");
+  area(f, b, 0430, 01000, "FILE");
+  area(f, b, 0000, 00270, "FILE");
   return address;
 }
 
