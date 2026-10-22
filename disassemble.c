@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 typedef unsigned short word_t;
+typedef word_t (*second_fn_t)(FILE *, word_t, word_t, word_t);
 
 #define UNUSED(X) (void)X
 
@@ -164,7 +165,7 @@ struct something {
   word_t insn_mask, insn_code;  const char *insn_name;
   word_t i_mask; const char *i_name;
   word_t beta_mask; void (*beta_fn)(FILE *, word_t);
-  word_t (*second_fn)(FILE *, word_t, word_t, word_t);
+  second_fn_t second_fn;
 };
 
 static struct something table[] = {
@@ -231,11 +232,9 @@ static struct something table[] = {
   { 06000, 06000, "JMP", 00000, NULL, 01777, X,     NULL }
 };
 
-word_t disassemble(FILE *f, word_t address, word_t *data)
+static second_fn_t mnemonic(FILE *f, word_t insn)
 {
-  word_t insn = data[address];
   unsigned i;
-  begin(f, address++, insn);
   for (i = 0; i < sizeof table / sizeof table[0]; i++) {
     if ((insn & table[i].insn_mask) != table[i].insn_code)
       continue;
@@ -244,9 +243,19 @@ word_t disassemble(FILE *f, word_t address, word_t *data)
       fprintf(f, " %s", table[i].i_name);
     if (table[i].beta_mask)
       table[i].beta_fn(f, insn & table[i].beta_mask);
-    if (table[i].second_fn)
-      address = table[i].second_fn(f, insn, data[address], address);
-    break;
+    return table[i].second_fn;
   }
+  fprintf(f, "%04o", insn);
+  return (second_fn_t)NULL;
+}
+
+word_t disassemble(FILE *f, word_t address, word_t *data)
+{
+  word_t insn = data[address];
+  second_fn_t fn;
+  begin(f, address++, insn);
+  fn = mnemonic(f, insn);
+  if (fn)
+    address = fn(f, insn, data[address], address);
   return address;
 }
