@@ -652,10 +652,9 @@ static void write_binary_to(FILE *f, word_t *data, int words)
 extern word_t disassemble(FILE *f, word_t address, word_t *data, word_t base);
 static void disassemble_binary_to(FILE *f, word_t *data, int words, word_t base)
 {
-  int i;
-  for (i = 0; i < words; i++) {
-    disassemble(f, i, data, base);
-  }
+  int i = 0;
+  while (i < words)
+    i = disassemble(f, i, data, base);
 }
 
 static void load_binary_entry(const char *name, word_t *block, word_t *blocks)
