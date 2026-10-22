@@ -3,6 +3,8 @@
 typedef unsigned short word_t;
 typedef word_t (*second_fn_t)(FILE *, word_t, word_t, word_t);
 
+static second_fn_t mnemonic(FILE *f, word_t insn);
+
 #define UNUSED(X) (void)X
 
 /*
@@ -114,13 +116,44 @@ static void begin(FILE *f, word_t address, word_t insn)
   fputs("   ", f);
 }
 
+static int set_without_i(word_t insn)
+{
+  return (insn & 07760) == 00040;
+}
+
+static int index_without_i(word_t insn)
+{
+  return (insn & 07037) == 01000;
+}
+
+static int index_arithmetic_halfword_bitmask_grid(word_t insn)
+{
+  /* Exclude LDA and STA. */
+  if ((insn & 07700) == 01000)
+    return 0;
+  /* These are addition, multiplication, half word, bit masks, or grids. */
+  return (insn & 07017) == 01000;
+}
+
 static word_t second(FILE *f, word_t insn, word_t data, word_t address)
 {
-  UNUSED(insn);
+  const char *comment = "  [";
+  int probably_not_code;
+
   begin(f, address++, data);
   fprintf(f, " %04o", data);
+
+  probably_not_code =
+     set_without_i(insn) ||     /* Second word is an address. */
+     index_without_i(insn) ||   /* Second word is an address. */
+     index_arithmetic_halfword_bitmask_grid(insn);
+  if (!probably_not_code) {
+    fputs(comment, f);
+    comment = "  ";
+    (void)mnemonic(f, data);
+  }
   if (data >= 04000)
-    fprintf(f, "  [-%o", data ^ 07777);
+    fprintf(f, "%s-%o", comment, data ^ 07777);
   return address;
 }
 
