@@ -106,19 +106,24 @@ static void X(FILE *f, word_t code)
   fprintf(f, " %04o", code & 01777);
 }
 
-static word_t second(FILE *f, word_t insn, word_t *data, word_t address)
+static void begin(FILE *f, word_t address, word_t insn)
+{
+  fprintf(f, "\n%04o  %04o ", address, insn);
+  keyboard_pair(f, insn);
+  fputs("   ", f);
+}
+
+static word_t second(FILE *f, word_t insn, word_t data, word_t address)
 {
   UNUSED(insn);
-  word_t d = data[address++];
-  fprintf(f, "  [ %4o", d);
-  if (d >= 04000) {
-    int sd = d ^ 07777;
-    fprintf(f, " (-%o)", sd);
-  }
+  begin(f, address++, data);
+  fprintf(f, " %04o", data);
+  if (data >= 04000)
+    fprintf(f, "  [-%o", data ^ 07777);
   return address;
 }
 
-static word_t indexing(FILE *f, word_t insn, word_t *data, word_t address)
+static word_t indexing(FILE *f, word_t insn, word_t data, word_t address)
 {
   if (insn & 017)
     return address;
@@ -133,18 +138,17 @@ static void area(FILE *f, word_t block, word_t start, word_t end, const char *na
   fprintf(f, "  [ %o=%s+%o", block, name, block - start);
 }
 
-static word_t magtape(FILE *f, word_t insn, word_t *data, word_t address)
+static word_t magtape(FILE *f, word_t insn, word_t data, word_t address)
 {
   word_t i = insn & 020;
   word_t u = (insn & 010) >> 3;
-  word_t d = data[address++];
-  word_t q = (d & 07000) >> 9;
-  word_t b = d & 0777;
+  word_t q = (data & 07000) >> 9;
+  word_t b = data & 0777;
   if (u)
     fprintf(f, " u");
-  fprintf(f, "  [ %s u%o %o|%o",
-    i ? "move" : "stop",
-    (int)u, (int)q, (int)b);
+  fprintf(f, "  [ %s u%o", i ? "move" : "stop", (int)u);
+  begin(f, address++, data);
+  fprintf(f, " %o|%03o", q, b);
   area(f, b, 0300, 00317, "LAP6");
   area(f, b, 0317, 00320, "FREE");
   area(f, b, 0320, 00340, "LAP6");
@@ -160,7 +164,7 @@ struct something {
   word_t insn_mask, insn_code;  const char *insn_name;
   word_t i_mask; const char *i_name;
   word_t beta_mask; void (*beta_fn)(FILE *, word_t);
-  word_t (*second_fn)(FILE *, word_t, word_t *, word_t);
+  word_t (*second_fn)(FILE *, word_t, word_t, word_t);
 };
 
 static struct something table[] = {
@@ -231,18 +235,17 @@ word_t disassemble(FILE *f, word_t address, word_t *data)
 {
   word_t insn = data[address];
   unsigned i;
+  begin(f, address++, insn);
   for (i = 0; i < sizeof table / sizeof table[0]; i++) {
     if ((insn & table[i].insn_mask) != table[i].insn_code)
       continue;
-    fprintf(f, "\n%04o  %04o ", address++, insn);
-    keyboard_pair(f, insn);
-    fprintf(f, "     %s", table[i].insn_name);
+    fprintf(f, "%s", table[i].insn_name);
     if ((insn & table[i].i_mask) != 0)
       fprintf(f, " %s", table[i].i_name);
     if (table[i].beta_mask)
       table[i].beta_fn(f, insn & table[i].beta_mask);
     if (table[i].second_fn)
-      address = table[i].second_fn(f, insn, data, address);
+      address = table[i].second_fn(f, insn, data[address], address);
     break;
   }
   return address;
