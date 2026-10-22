@@ -116,6 +116,15 @@ static void begin(FILE *f, word_t address, word_t insn)
   fputs("   ", f);
 }
 
+static word_t skip(FILE *f, word_t insn, word_t data, word_t address)
+{
+  UNUSED(insn);
+  begin(f, address++, data);
+  fputc(' ', f);
+  (void)mnemonic(f, data);
+  return address;
+}
+
 static int set_without_i(word_t insn)
 {
   return (insn & 07760) == 00040;
@@ -216,17 +225,17 @@ static struct something table[] = {
   { 07740, 00240, "ROL", 00020, "i",  00017, alpha, NULL },
   { 07740, 00300, "ROR", 00020, "i",  00017, alpha, NULL },
   { 07740, 00340, "SCR", 00020, "i",  00017, alpha, NULL },
-  { 07757, 00415, "KST", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00446, "PIN", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00450, "AZE", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00451, "APO", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00452, "LZE", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00453, "IBZ", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00454, "OVF", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00455, "ZZZ", 00020, "i",  00000, NULL,  NULL },
-  { 07740, 00400, "SXL", 00020, "i",  00017, alpha, NULL },
-  { 07750, 00440, "SNS", 00020, "i",  00017, alpha, NULL },
-  { 07740, 00440, "SKP", 00020, "i",  00017, alpha, NULL },
+  { 07757, 00415, "KST", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00446, "PIN", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00450, "AZE", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00451, "APO", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00452, "LZE", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00453, "IBZ", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00454, "OVF", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00455, "ZZZ", 00020, "i",  00000, NULL,  skip },
+  { 07740, 00400, "SXL", 00020, "i",  00017, alpha, skip },
+  { 07750, 00440, "SNS", 00020, "i",  00017, alpha, skip },
+  { 07740, 00440, "SKP", 00020, "i",  00017, alpha, skip },
 //{ 07757, 00513, "PDP", 00020, "i",  00000, NULL,  NULL }, // LINC-8
 //{ 07757, 00514, "TYP", 00020, "i",  00000, NULL,  NULL }, // LINC-8
   { 07757, 00515, "KBD", 00020, "i",  00000, NULL,  NULL },
