@@ -31,6 +31,8 @@ static FILE *tape;
 static const char *convert_to_utf8(word_t c);
 static const char *(*convert)(word_t c) = convert_to_utf8;
 
+static void get_index(void);
+
 static const char *strerrno(void)
 {
   return strerror(errno);
@@ -673,8 +675,28 @@ static void save_manuscript(void)
   save_input("New manuscript", get_manuscript, 07777, &data[4], &data[5]);
 }
 
+static void add_manuscript_block(int block)
+{
+  word_t data[BLOCK_WORDS];
+  int header, first = 1;
+  while (block < 01000) {
+    read_block(block++, data);
+    header = check_manuscript(first, 0, data);
+    write_manuscript_to(stdout, data + header, BLOCK_WORDS);
+    first = 0;
+  }
+}
+
 static void add_manuscript(void)
 {
+  char *end;
+  int block = strtoul(arg3, &end, 8);
+  if (*end == 0) {
+    add_manuscript_block(block);
+    return;
+  }
+
+  get_index();
   traverse(add_manuscript_entry, ignore);
   fail("Manuscript %s not found.", arg3);
 }
@@ -806,7 +828,7 @@ static void mark_tape(void)
   /* Which format, plain or Gesswein? */
   int reverse_offset = forward_offset = -8;
   long size;
-  if (tape_seek(TAPE_BLOCKS + 10) == -1)
+  if (tape_seek(TAPE_BLOCKS) == -1)
     fail("Seeking to block %03o: %s.", TAPE_BLOCKS + 10, strerrno());
   write_word(BLOCK_WORDS);
   write_word(forward_offset);
@@ -974,7 +996,7 @@ static const struct {
   { "dx", 3, 3, read_index,     display_index },
   { "sx", 3, 3, read_noindex,   search_index },
   { "sm", 4, 4, write_index,    save_manuscript },
-  { "am", 4, 4, read_index,     add_manuscript },
+  { "am", 4, 4, read_noindex,   add_manuscript },
   { "sb", 4, 4, write_index,    save_binary },
   { "lo", 4, 4, read_index,     load_binary },
   { "dm", 4, 4, write_index,    delete_manuscript },

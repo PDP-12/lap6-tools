@@ -29,6 +29,7 @@ echo "XYZ" | lap6 sm FOO
 lap6 dx | grep "^FOO  * M " >/dev/null || fail "Test failed."
 lap6 lo FOO && fail "Test failed."
 lap6 am FOO | grep "^XYZ" >/dev/null || fail "Test failed."
+lap6 am 430 | grep "^XYZ" >/dev/null || fail "Test failed."
 lap6 rb 430 1 | od | head -1 |
   grep " 002065 \+005712 \+005354 \+005512 \+0077" >/dev/null ||
     fail "Test failed."
