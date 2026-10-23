@@ -398,6 +398,16 @@ static int getunicode()
   return 0;
 }
 
+static int getunicode_notab(void)
+{
+  int c;
+  for (;;) {
+    c = getunicode();
+    if (c != '\t')
+      return c;
+  }
+}
+
 static int get_manuscript(word_t *data)
 {
   static int manuscript_state = 0;
@@ -410,13 +420,13 @@ static int get_manuscript(word_t *data)
   case 3: return 0;
   }
 
-  c1 = getunicode();
+  c1 = getunicode_notab();
   if (c1 == EOF) {
     *data = 07777;
     manuscript_state++;
     return 1;
   }
-  c2 = getunicode();
+  c2 = getunicode_notab();
   if (c2 == EOF)
     c2 = 'y';
   *data = convert_to_linc(c2) | (convert_to_linc(c1) << 6);
