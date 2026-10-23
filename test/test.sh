@@ -10,7 +10,7 @@ fail() {
 lap6() {
     command="$1"
     shift
-    ../lap6 "$command" test.linc "$@" 2>/dev/null
+    ../lap6 $command test.linc "$@" 2>/dev/null
 }
 
 cd `dirname "$0"`
@@ -52,6 +52,11 @@ printf "\000" | lap6 sb FOO && fail "Bad data not detected."
 lap6 dx | grep "^FOO" >/dev/null && fail "Test failed."
 printf "\000\020" | lap6 sb FOO && fail "Bad data not detected."
 lap6 dx | grep "^FOO" >/dev/null && fail "Test failed."
+
+#Binary blocks in octal.
+lap6 "-O wb" 430 < input.oct
+lap6 "-O rb" 430 1 > output.oct
+cmp output.oct expected.oct || fail "Test failed."
 
 echo "Tape filing test succeeded."
 

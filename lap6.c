@@ -28,8 +28,15 @@ static const char *arg3 = NULL;
 static const char *arg4 = NULL;
 static int forward_offset;
 static FILE *tape;
+
 static const char *convert_to_utf8(word_t c);
 static const char *(*convert)(word_t c) = convert_to_utf8;
+
+static void output_binary(FILE *f, word_t data);
+static void (*output)(FILE *f, word_t data) = output_binary;
+
+static int input_binary(word_t *data);
+static int (*get_binary)(word_t *data) = input_binary;
 
 static const char *strerrno(void)
 {
@@ -433,7 +440,7 @@ static int get_manuscript(word_t *data)
   return 1;
 }
 
-static int get_binary(word_t *data)
+static int input_binary(word_t *data)
 {
   int c1, c2;
   c1 = getchar();
@@ -445,6 +452,31 @@ static int get_binary(word_t *data)
   *data = c1 | (c2 << 8);
   if (c2 & 0xF0)
     fail("Word in input exceeds 12 bit number: %06o.", *data);
+  return 1;
+}
+
+static int odigit(int c)
+{
+  return c >= '0' && c <= '7';
+}
+
+static int input_octal(word_t *data)
+{
+  word_t x = 0;
+  int c, i;
+
+  do {
+    c = getchar();
+    if (c == EOF)
+      return 0;
+  } while (!odigit(c));
+
+  for (i = 0; odigit(c); i++, c = getchar()) {
+    x = 8 * x + c - '0';
+    if (i == 3)
+      break;
+  }
+  *data = x;
   return 1;
 }
 
@@ -593,13 +625,22 @@ static void save_binary_entry(const char *name, word_t *block, word_t *blocks)
   save_input("Overwriting binary", get_binary, 00000, block, blocks);
 }
 
+static void output_binary(FILE *f, word_t data)
+{
+  fputc(data & 0xFF, f);
+  fputc((data >> 8) & 0xF, f);
+}
+
+static void output_octal(FILE *f, word_t data)
+{
+  fprintf(f, "%04o\n", data & 07777);
+}
+
 static void write_binary_to(FILE *f, word_t *data, int words)
 {
   int i;
-  for (i = 0; i < words; i++) {
-    fputc(data[i] & 0xFF, f);
-    fputc((data[i] >> 8) & 0xF, f);
-  }
+  for (i = 0; i < words; i++)
+    output(f, data[i]);
 }
 
 extern word_t disassemble(FILE *f, word_t address, word_t *data, word_t base);
@@ -1021,6 +1062,14 @@ static void option(char x)
    switch (x) {
    case 'A':
       convert = convert_to_ascii;
+      break;
+   case 'B':
+      output = output_binary;
+      get_binary = input_binary;
+      break;
+   case 'O':
+      output = output_octal;
+      get_binary = input_octal;
       break;
    case 'S':
       convert = convert_to_slyngstad;
