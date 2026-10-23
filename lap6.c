@@ -398,6 +398,16 @@ static int getunicode()
   return 0;
 }
 
+static int getunicode_notab(void)
+{
+  int c;
+  for (;;) {
+    c = getunicode();
+    if (c != '\t')
+      return c;
+  }
+}
+
 static int get_manuscript(word_t *data)
 {
   static int manuscript_state = 0;
@@ -410,13 +420,13 @@ static int get_manuscript(word_t *data)
   case 3: return 0;
   }
 
-  c1 = getunicode();
+  c1 = getunicode_notab();
   if (c1 == EOF) {
     *data = 07777;
     manuscript_state++;
     return 1;
   }
-  c2 = getunicode();
+  c2 = getunicode_notab();
   if (c2 == EOF)
     c2 = 'y';
   *data = convert_to_linc(c2) | (convert_to_linc(c1) << 6);
@@ -592,13 +602,13 @@ static void write_binary_to(FILE *f, word_t *data, int words)
   }
 }
 
-extern word_t disassemble(FILE *f, word_t address, word_t *data, word_t base);
-static void disassemble_binary_to(FILE *f, word_t *data, int words, word_t base)
+extern word_t disassemble(FILE *f, word_t address, word_t *data);
+
+static void disassemble_binary_to(FILE *f, word_t *data, int blocks)
 {
-  int i;
-  for (i = 0; i < words; i++) {
-    disassemble(f, i, data, base);
-  }
+  int i = 0;
+  while (i < blocks * BLOCK_WORDS)
+    i = disassemble(f, i, data);
 }
 
 static void load_binary_entry(const char *name, word_t *block, word_t *blocks)
@@ -618,16 +628,14 @@ static void load_binary_entry(const char *name, word_t *block, word_t *blocks)
 
 static void disassemble_binary_entry(const char *name, word_t *block, word_t *blocks)
 {
-  word_t data[BLOCK_WORDS];
   int i, n = *block, m = *blocks;
   if (!found(name))
     return;
   if (*block == EMPTY && *blocks == EMPTY)
     fail("Entry %s has no binary.", name);
-  for (i = 0; i < m; i++) {
-    read_block(n++, data);
-    disassemble_binary_to(stdout, data, BLOCK_WORDS, i*BLOCK_WORDS);
-  }
+  for (i = 0; i < m; i++)
+    read_block(n++, &input[i * BLOCK_WORDS]);
+  disassemble_binary_to(stdout, input, m);
   exit(0);
 }
 
@@ -659,8 +667,24 @@ static void save_manuscript(void)
   save_input("New manuscript", get_manuscript, 07777, &data[4], &data[5]);
 }
 
+static void add_manuscript_block(int block)
+{
+  word_t data[BLOCK_WORDS];
+  while (block < 01000) {
+    read_block(block++, data);
+    write_manuscript_to(stdout, data, BLOCK_WORDS);
+  }
+}
+
 static void add_manuscript(void)
 {
+  char *end;
+  int block = strtoul(arg3, &end, 8);
+  if (*end == 0) {
+    add_manuscript_block(block);
+    return;
+  }
+
   traverse(add_manuscript_entry, ignore);
   fail("Manuscript %s not found.", arg3);
 }
@@ -826,7 +850,6 @@ static void read_binary_blocks(void)
 static void disassemble_binary_blocks(void)
 {
   char *end;
-  word_t data[BLOCK_WORDS];
   int block, blocks;
   int i;
 
@@ -837,10 +860,9 @@ static void disassemble_binary_blocks(void)
   if (end == arg3)
     fail("Invalid number of blocks: %s.", arg4);
 
-  for (i = 0; i < blocks; i++) {
-    read_block(block++, data);
-    disassemble_binary_to(stdout, data, BLOCK_WORDS, i*BLOCK_WORDS);
-  }
+  for (i = 0; i < blocks; i++)
+    read_block(block++, &input[i * BLOCK_WORDS]);
+  disassemble_binary_to(stdout, input, blocks);
 }
 
 static void write_binary_blocks(void)

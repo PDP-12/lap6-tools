@@ -1,6 +1,9 @@
 #include <stdio.h>
 
 typedef unsigned short word_t;
+typedef word_t (*second_fn_t)(FILE *, word_t, word_t, word_t);
+
+static second_fn_t mnemonic(FILE *f, word_t insn);
 
 #define UNUSED(X) (void)X
 
@@ -106,19 +109,64 @@ static void X(FILE *f, word_t code)
   fprintf(f, " %04o", code & 01777);
 }
 
-static word_t second(FILE *f, word_t insn, word_t *data, word_t address)
+static void begin(FILE *f, word_t address, word_t insn)
+{
+  fprintf(f, "\n%04o  %04o ", address, insn);
+  keyboard_pair(f, insn);
+  fputs("   ", f);
+}
+
+static word_t skip(FILE *f, word_t insn, word_t data, word_t address)
 {
   UNUSED(insn);
-  word_t d = data[address++];
-  fprintf(f, "  [ %4o", d);
-  if (d >= 04000) {
-    int sd = d ^ 07777;
-    fprintf(f, " (-%o)", sd);
-  }
+  begin(f, address++, data);
+  fputc(' ', f);
+  (void)mnemonic(f, data);
   return address;
 }
 
-static word_t indexing(FILE *f, word_t insn, word_t *data, word_t address)
+static int set_without_i(word_t insn)
+{
+  return (insn & 07760) == 00040;
+}
+
+static int index_without_i(word_t insn)
+{
+  return (insn & 07037) == 01000;
+}
+
+static int index_arithmetic_halfword_bitmask_grid(word_t insn)
+{
+  /* Exclude LDA and STA. */
+  if ((insn & 07700) == 01000)
+    return 0;
+  /* These are addition, multiplication, half word, bit masks, or grids. */
+  return (insn & 07017) == 01000;
+}
+
+static word_t second(FILE *f, word_t insn, word_t data, word_t address)
+{
+  const char *comment = "  [";
+  int probably_not_code;
+
+  begin(f, address++, data);
+  fprintf(f, " %04o", data);
+
+  probably_not_code =
+     set_without_i(insn) ||     /* Second word is an address. */
+     index_without_i(insn) ||   /* Second word is an address. */
+     index_arithmetic_halfword_bitmask_grid(insn);
+  if (!probably_not_code) {
+    fputs(comment, f);
+    comment = "  ";
+    (void)mnemonic(f, data);
+  }
+  if (data >= 04000)
+    fprintf(f, "%s-%o", comment, data ^ 07777);
+  return address;
+}
+
+static word_t indexing(FILE *f, word_t insn, word_t data, word_t address)
 {
   if (insn & 017)
     return address;
@@ -126,22 +174,29 @@ static word_t indexing(FILE *f, word_t insn, word_t *data, word_t address)
     return second(f, insn, data, address);
 }
 
-static word_t magtape(FILE *f, word_t insn, word_t *data, word_t address)
+static void area(FILE *f, word_t block, word_t start, word_t end, const char *name)
+{
+  if (block < start || block >= end)
+    return;
+  fprintf(f, "  [ %o=%s+%o", block, name, block - start);
+}
+
+static word_t magtape(FILE *f, word_t insn, word_t data, word_t address)
 {
   word_t i = insn & 020;
   word_t u = (insn & 010) >> 3;
-  word_t d = data[address++];
-  word_t q = (d & 07000) >> 9;
-  word_t b = d & 0777;
+  word_t q = (data & 07000) >> 9;
+  word_t b = data & 0777;
   if (u)
     fprintf(f, " u");
-  fprintf(f, "  [ %s u%o %o|%o",
-    i ? "move" : "stop",
-    (int)u, (int)q, (int)b);
-  if (b >= 0300 && b < 0350) fprintf(f, " %o=LAP6+%o",  (int)b, (int)(b-0300));
-  if (b >= 0350 && b < 0426) fprintf(f, " %o=WA+%o",    (int)b, (int)(b-0350));
-  if (b >= 0426 && b < 0430) fprintf(f, " %o=INDEX+%o", (int)b, (int)(b-0426));
-  if (b >= 0430 && b < 0777) fprintf(f, " %o=FILE+%o",  (int)b, (int)(b-0430));
+  fprintf(f, "  [ %s u%o", i ? "move" : "stop", (int)u);
+  begin(f, address++, data);
+  fprintf(f, " %o|%03o", q, b);
+  area(f, b, 0300, 00350, "LAP6");
+  area(f, b, 0350, 00426, "WA");
+  area(f, b, 0426, 00430, "INDEX");
+  area(f, b, 0430, 01000, "FILE");
+  area(f, b, 0000, 00270, "FILE");
   return address;
 }
 
@@ -149,7 +204,7 @@ struct something {
   word_t insn_mask, insn_code;  const char *insn_name;
   word_t i_mask; const char *i_name;
   word_t beta_mask; void (*beta_fn)(FILE *, word_t);
-  word_t (*second_fn)(FILE *, word_t, word_t *, word_t);
+  second_fn_t second_fn;
 };
 
 static struct something table[] = {
@@ -162,7 +217,7 @@ static struct something table[] = {
   { 07777, 00015, "RTA", 00000, NULL, 00000, NULL,  NULL },
   { 07777, 00016, "NOP", 00000, NULL, 00000, NULL,  NULL },
   { 07777, 00017, "COM", 00000, NULL, 00000, NULL,  NULL },
-  { 07740, 00000, "MSC", 00000, NULL, 00000, alpha, NULL },
+  { 07740, 00000, "MSC", 00000, NULL, 00017, alpha, NULL },
   { 07740, 00040, "SET", 00020, "i",  00017, alpha, second },
   { 07740, 00100, "SAM", 00020, "i",  00017, alpha, NULL },
   { 07740, 00140, "DIS", 00020, "i",  00017, alpha, NULL },
@@ -170,17 +225,17 @@ static struct something table[] = {
   { 07740, 00240, "ROL", 00020, "i",  00017, alpha, NULL },
   { 07740, 00300, "ROR", 00020, "i",  00017, alpha, NULL },
   { 07740, 00340, "SCR", 00020, "i",  00017, alpha, NULL },
-  { 07757, 00415, "KST", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00446, "PIN", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00450, "AZE", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00451, "APO", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00452, "LZE", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00453, "IBZ", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00454, "OVF", 00020, "i",  00000, NULL,  NULL },
-  { 07757, 00455, "ZZZ", 00020, "i",  00000, NULL,  NULL },
-  { 07740, 00400, "SXL", 00020, "i",  00017, alpha, NULL },
-  { 07750, 00440, "SNS", 00020, "i",  00017, alpha, NULL },
-  { 07740, 00440, "SKP", 00020, "i",  00017, alpha, NULL },
+  { 07757, 00415, "KST", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00446, "PIN", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00450, "AZE", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00451, "APO", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00452, "LZE", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00453, "IBZ", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00454, "OVF", 00020, "i",  00000, NULL,  skip },
+  { 07757, 00455, "ZZZ", 00020, "i",  00000, NULL,  skip },
+  { 07740, 00400, "SXL", 00020, "i",  00017, alpha, skip },
+  { 07750, 00440, "SNS", 00020, "i",  00017, alpha, skip },
+  { 07740, 00440, "SKP", 00020, "i",  00017, alpha, skip },
 //{ 07757, 00513, "PDP", 00020, "i",  00000, NULL,  NULL }, // LINC-8
 //{ 07757, 00514, "TYP", 00020, "i",  00000, NULL,  NULL }, // LINC-8
   { 07757, 00515, "KBD", 00020, "i",  00000, NULL,  NULL },
@@ -216,24 +271,30 @@ static struct something table[] = {
   { 06000, 06000, "JMP", 00000, NULL, 01777, X,     NULL }
 };
 
-word_t disassemble(FILE *f, word_t address, word_t *data, word_t base)
+static second_fn_t mnemonic(FILE *f, word_t insn)
 {
-  word_t addr = address + base;
-  word_t insn = data[address++];
   unsigned i;
   for (i = 0; i < sizeof table / sizeof table[0]; i++) {
     if ((insn & table[i].insn_mask) != table[i].insn_code)
       continue;
-    fprintf(f, "\n%04o  %04o ", (int)addr, (int)insn);
-    keyboard_pair(f, insn);
-    fprintf(f, "     %s", table[i].insn_name);
+    fprintf(f, "%s", table[i].insn_name);
     if ((insn & table[i].i_mask) != 0)
       fprintf(f, " %s", table[i].i_name);
     if (table[i].beta_mask)
       table[i].beta_fn(f, insn & table[i].beta_mask);
-    if (table[i].second_fn)
-      address = table[i].second_fn(f, insn, data, address);
-    break;
+    return table[i].second_fn;
   }
+  fprintf(f, "%04o", insn);
+  return (second_fn_t)NULL;
+}
+
+word_t disassemble(FILE *f, word_t address, word_t *data)
+{
+  word_t insn = data[address];
+  second_fn_t fn;
+  begin(f, address++, insn);
+  fn = mnemonic(f, insn);
+  if (fn)
+    address = fn(f, insn, data[address], address);
   return address;
 }

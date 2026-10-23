@@ -17,6 +17,7 @@ It managed all this with only 1024 instructions in memory at a time.
 | sx      | tape      | Search for possible index blocks
 | sm      | tape name | Save named manuscript on tape, from stdin
 | am      | tape name | Add named manuscsript from tape, to stdout
+| am      | tape b    | Add manuscsript starting from tape block b, to stdout
 | sb      | tape name | Save named binary to tape, from stdin
 | lo      | tape name | Load named binary from tape, to stdout
 | dm      | tape name | Delete named manuscript
