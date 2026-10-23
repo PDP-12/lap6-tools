@@ -667,8 +667,24 @@ static void save_manuscript(void)
   save_input("New manuscript", get_manuscript, 07777, &data[4], &data[5]);
 }
 
+static void add_manuscript_block(int block)
+{
+  word_t data[BLOCK_WORDS];
+  while (block < 01000) {
+    read_block(block++, data);
+    write_manuscript_to(stdout, data, BLOCK_WORDS);
+  }
+}
+
 static void add_manuscript(void)
 {
+  char *end;
+  int block = strtoul(arg3, &end, 8);
+  if (*end == 0) {
+    add_manuscript_block(block);
+    return;
+  }
+
   traverse(add_manuscript_entry, ignore);
   fail("Manuscript %s not found.", arg3);
 }
