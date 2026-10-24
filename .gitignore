@@ -2,5 +2,6 @@
 *.o
 /convert
 /lap6
+/tabify
 /test/output.oct
 /test/test.linc
