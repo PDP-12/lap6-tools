@@ -869,7 +869,9 @@ static void mark_tape(void)
   /* Which format, plain or Gesswein? */
   int reverse_offset = forward_offset = -8;
   long size;
-  if (tape_seek(TAPE_BLOCKS) == -1)
+  /* Eight negative numbere blocks before block 0,
+     and 10 blocks after block 511. */
+  if (tape_seek(TAPE_BLOCKS) + 10 == -1)
     fail("Seeking to block %03o: %s.", TAPE_BLOCKS + 10, strerrno());
   write_word(BLOCK_WORDS);
   write_word(forward_offset);
@@ -967,6 +969,7 @@ void metadata(int *block_size, int *forward_offset, int *reverse_offset)
 static void get_metadata(void)
 {
   int block_size, reverse_offset;
+  forward_offset = 0;
   metadata(&block_size, &forward_offset, &reverse_offset);
   if (block_size != BLOCK_WORDS)
     fail("Tape has bad block size: %03o.", block_size);
