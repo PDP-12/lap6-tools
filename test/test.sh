@@ -17,7 +17,7 @@ cd `dirname "$0"`
 
 #Test the assembler.
 ../lap6.py test.lap6 > output.oct
-cmp test.oct output.oct || fail "Test failed."
+cmp assembler.oct output.oct || fail "Test failed."
 echo "Assembler test succeeded."
 
 #Create tape image.
