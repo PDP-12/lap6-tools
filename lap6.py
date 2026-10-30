@@ -366,6 +366,11 @@ if __name__ == "__main__":
             for i in range(p, pee()):
                 list(i, line)
                 line = "\n"
-    for i in range(memsize):
-        if image[i] is not None:
-            print(f"{i:04o} {image[i]:04o}")
+    address = 0
+    with output(sys.argv[1], "oct") as octal:
+        for i in range(memsize):
+            if image[i] is not None:
+                print(f"{i:04o} {image[i]:04o}")
+                print("0000\n" * (i - address), file=octal, end="")
+                address = i + 1
+                print(f"{image[i]:04o}", file=octal)

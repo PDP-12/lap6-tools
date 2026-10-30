@@ -11,5 +11,5 @@ lap6: lap6.o disassemble.o
 tabify: tabify.o
 	$(CC) $(CFLAGS) $^ -o $@
 
-check: lap6.py test/test.sh test/test.oct
+check: lap6.py test/test.sh test/assembler.oct
 	test/test.sh
